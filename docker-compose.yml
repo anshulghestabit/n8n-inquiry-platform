@@ -1,0 +1,47 @@
+services:
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+      - N8N_API_DISABLED=false
+      - WEBHOOK_URL=http://localhost:5678
+      - GENERIC_TIMEZONE=Asia/Kolkata
+    volumes:
+      - ./n8n/.n8n:/home/node/.n8n
+    networks:
+      - app-network
+
+  backend:
+    build: ./backend
+    container_name: fastapi
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - LLM_PROVIDER=${LLM_PROVIDER}
+      - SARVAM_BASE_URL=${SARVAM_BASE_URL}
+      - SARVAM_MODEL=${SARVAM_MODEL}
+      - LM_STUDIO_BASE_URL=${LM_STUDIO_BASE_URL}
+      - LM_STUDIO_MODEL=${LM_STUDIO_MODEL}
+      - N8N_URL=${N8N_URL}
+      - N8N_API_KEY=${N8N_API_KEY}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - SECRET_KEY=${SECRET_KEY}
+      - ENVIRONMENT=${ENVIRONMENT}
+      - FRONTEND_URL=${FRONTEND_URL}
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - n8n
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
