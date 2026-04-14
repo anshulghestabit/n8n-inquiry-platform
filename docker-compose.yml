@@ -1,15 +1,37 @@
 services:
   n8n:
-    image: n8nio/n8n:latest
+    image: n8nio/n8n:2.16.0
     container_name: n8n
     restart: unless-stopped
     ports:
       - "5678:5678"
+      - "5679:5679"
     environment:
       - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
       - N8N_API_DISABLED=false
+      - N8N_RUNNERS_ENABLED=true
+      - N8N_RUNNERS_MODE=external
+      - N8N_RUNNERS_AUTH_TOKEN=${N8N_RUNNERS_AUTH_TOKEN}
+      - N8N_RUNNERS_BROKER_LISTEN_ADDRESS=0.0.0.0
+      - N8N_NATIVE_PYTHON_RUNNER=true
+      - N8N_AUTH_EXCLUDE_ENDPOINTS=rest/.*
       - WEBHOOK_URL=http://localhost:5678
       - GENERIC_TIMEZONE=Asia/Kolkata
+    volumes:
+      - ./n8n/.n8n:/home/node/.n8n
+    networks:
+      - app-network
+
+  task-runners:
+    image: n8nio/runners:2.16.0
+    container_name: n8n-runners
+    restart: unless-stopped
+    environment:
+      - N8N_RUNNERS_TASK_BROKER_URI=http://n8n:5679
+      - N8N_RUNNERS_AUTH_TOKEN=${N8N_RUNNERS_AUTH_TOKEN}
+      - N8N_RUNNERS_MODE=external
+    depends_on:
+      - n8n
     volumes:
       - ./n8n/.n8n:/home/node/.n8n
     networks:
@@ -23,6 +45,7 @@ services:
       - "8000:8000"
     environment:
       - LLM_PROVIDER=${LLM_PROVIDER}
+      - SARVAM_API_KEY=${SARVAM_API_KEY}
       - SARVAM_BASE_URL=${SARVAM_BASE_URL}
       - SARVAM_MODEL=${SARVAM_MODEL}
       - LM_STUDIO_BASE_URL=${LM_STUDIO_BASE_URL}
@@ -32,6 +55,7 @@ services:
       - SUPABASE_URL=${SUPABASE_URL}
       - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
       - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - SUPABASE_JWT_SECRET=${SUPABASE_JWT_SECRET}
       - SECRET_KEY=${SECRET_KEY}
       - ENVIRONMENT=${ENVIRONMENT}
       - FRONTEND_URL=${FRONTEND_URL}
