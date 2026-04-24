@@ -1,0 +1,266 @@
+{
+  "name": "Day 4 - Customer Inquiry 5-Agent Chain",
+  "active": false,
+  "nodes": [
+    {
+      "id": "gmail-trigger",
+      "name": "Gmail Trigger",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0],
+      "parameters": {
+        "pollTimes": {"item": [{"mode": "everyMinute"}]},
+        "filters": {}
+      },
+      "credentials": {
+        "gmailOAuth2": {"id": "OdGLmcMGcKCExdMv", "name": "Gmail account"}
+      }
+    },
+    {
+      "id": "normalize-input",
+      "name": "Normalize_Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [240, 0],
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst body = item.text || item.textPlain || item.snippet || item.body || '';\nconst sender = item.from || item.From || item.sender || '';\nreturn [{ json: { original_inquiry: body, sender_email: sender, subject: item.subject || item.Subject || 'Customer inquiry', message_id: item.id || item.messageId || item.message_id || '', source_channel: 'gmail', execution_meta: { started_at: new Date().toISOString(), agent_durations: {} } } }];"
+      }
+    },
+    {
+      "id": "classifier-agent",
+      "name": "Classifier_Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 0],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SARVAM_BASE_URL || 'https://api.sarvam.ai/v1' }}/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [{"name": "Authorization", "value": "=Bearer {{ $env.SARVAM_API_KEY }}"}, {"name": "Content-Type", "value": "application/json"}]},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\"model\":\"{{ $env.SARVAM_MODEL || 'sarvam-m4' }}\",\"messages\":[{\"role\":\"system\",\"content\":\"You are a customer inquiry classifier. Return ONLY raw JSON with keys type, priority, confidence. type must be one of sales_inquiry, support_ticket, complaint, general_question, order_request. priority must be low, medium, or high. confidence must be a number from 0 to 1.\"},{\"role\":\"user\",\"content\":\"Subject: {{ $('Normalize_Input').item.json.subject }}\\nBody: {{ $('Normalize_Input').item.json.original_inquiry }}\"}],\"max_tokens\":200}"
+      }
+    },
+    {
+      "id": "classifier-json",
+      "name": "Classifier_JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [720, 0],
+      "parameters": {"jsCode": "const raw = $input.first().json.choices?.[0]?.message?.content || $input.first().json.output || $input.first().json.message?.content || '';\nfunction extractJSON(text) { try { return JSON.parse(text.trim()); } catch {} const stripped = text.replace(/```(?:json)?\\s*|\\s*```/g, '').trim(); try { return JSON.parse(stripped); } catch {} const m1 = text.match(/\\{[^{}]*\\}/s); if (m1) { try { return JSON.parse(m1[0]); } catch {} } const m2 = text.match(/\\{.*\\}/s); if (m2) { try { return JSON.parse(m2[0]); } catch {} } return null; }\nconst parsed = extractJSON(raw);\nconst ok = !!parsed && ['type','priority','confidence'].every((key) => parsed[key] !== undefined);\nconst base = $('Normalize_Input').first().json;\nreturn [{ json: { ...base, classification: parsed || {}, _ok: ok, _agent: 'classifier', _raw: ok ? undefined : raw.substring(0, 500) } }];"}
+    },
+    {
+      "id": "validate-classifier",
+      "name": "Validate_Classifier",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [960, 0],
+      "parameters": {"conditions": {"options": {"leftValue": "", "caseSensitive": true, "typeValidation": "strict"}, "combinator": "and", "conditions": [{"id": "classifier-ok", "operator": {"type": "boolean", "operation": "true", "singleValue": true}, "leftValue": "={{ $json._ok }}", "rightValue": true}]}, "options": {}}
+    },
+    {
+      "id": "researcher-agent",
+      "name": "Researcher_Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1200, 0],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SARVAM_BASE_URL || 'https://api.sarvam.ai/v1' }}/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [{"name": "Authorization", "value": "=Bearer {{ $env.SARVAM_API_KEY }}"}, {"name": "Content-Type", "value": "application/json"}]},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\"model\":\"{{ $env.SARVAM_MODEL || 'sarvam-m4' }}\",\"messages\":[{\"role\":\"system\",\"content\":\"You are a knowledge base researcher. Return ONLY JSON: {\\\"relevant_info\\\":\\\"...\\\",\\\"source\\\":\\\"internal_kb\\\"}. If no specific information is available, use relevant_info No specific information found. and source none.\"},{\"role\":\"user\",\"content\":\"Inquiry: {{ $('Classifier_JSON').item.json.original_inquiry }}\\nClassification: {{ JSON.stringify($('Classifier_JSON').item.json.classification) }}\"}],\"max_tokens\":250}"
+      }
+    },
+    {
+      "id": "researcher-json",
+      "name": "Researcher_JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1440, 0],
+      "parameters": {"jsCode": "const raw = $input.first().json.choices?.[0]?.message?.content || $input.first().json.output || $input.first().json.message?.content || '';\nfunction extractJSON(text) { try { return JSON.parse(text.trim()); } catch {} const stripped = text.replace(/```(?:json)?\\s*|\\s*```/g, '').trim(); try { return JSON.parse(stripped); } catch {} const m1 = text.match(/\\{[^{}]*\\}/s); if (m1) { try { return JSON.parse(m1[0]); } catch {} } const m2 = text.match(/\\{.*\\}/s); if (m2) { try { return JSON.parse(m2[0]); } catch {} } return null; }\nconst parsed = extractJSON(raw);\nconst ok = !!parsed && ['relevant_info','source'].every((key) => parsed[key] !== undefined);\nconst base = $('Classifier_JSON').first().json;\nreturn [{ json: { ...base, research: parsed || {}, _ok: ok, _agent: 'researcher', _raw: ok ? undefined : raw.substring(0, 500) } }];"}
+    },
+    {
+      "id": "validate-researcher",
+      "name": "Validate_Researcher",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1680, 0],
+      "parameters": {"conditions": {"options": {"leftValue": "", "caseSensitive": true, "typeValidation": "strict"}, "combinator": "and", "conditions": [{"id": "researcher-ok", "operator": {"type": "boolean", "operation": "true", "singleValue": true}, "leftValue": "={{ $json._ok }}", "rightValue": true}]}, "options": {}}
+    },
+    {
+      "id": "qualifier-agent",
+      "name": "Qualifier_Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1920, 0],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SARVAM_BASE_URL || 'https://api.sarvam.ai/v1' }}/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [{"name": "Authorization", "value": "=Bearer {{ $env.SARVAM_API_KEY }}"}, {"name": "Content-Type", "value": "application/json"}]},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\"model\":\"{{ $env.SARVAM_MODEL || 'sarvam-m4' }}\",\"messages\":[{\"role\":\"system\",\"content\":\"You are a lead/request qualifier. Score the lead or request from 1-10. Return ONLY JSON: {\\\"lead_score\\\":0,\\\"reason\\\":\\\"one sentence explaining the score\\\"}.\"},{\"role\":\"user\",\"content\":\"Inquiry: {{ $('Researcher_JSON').item.json.original_inquiry }}\\nClassification: {{ JSON.stringify($('Researcher_JSON').item.json.classification) }}\\nResearch: {{ JSON.stringify($('Researcher_JSON').item.json.research) }}\"}],\"max_tokens\":200}"
+      }
+    },
+    {
+      "id": "qualifier-json",
+      "name": "Qualifier_JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2160, 0],
+      "parameters": {"jsCode": "const raw = $input.first().json.choices?.[0]?.message?.content || $input.first().json.output || $input.first().json.message?.content || '';\nfunction extractJSON(text) { try { return JSON.parse(text.trim()); } catch {} const stripped = text.replace(/```(?:json)?\\s*|\\s*```/g, '').trim(); try { return JSON.parse(stripped); } catch {} const m1 = text.match(/\\{[^{}]*\\}/s); if (m1) { try { return JSON.parse(m1[0]); } catch {} } const m2 = text.match(/\\{.*\\}/s); if (m2) { try { return JSON.parse(m2[0]); } catch {} } return null; }\nconst parsed = extractJSON(raw);\nconst ok = !!parsed && ['lead_score','reason'].every((key) => parsed[key] !== undefined);\nconst base = $('Researcher_JSON').first().json;\nreturn [{ json: { ...base, qualification: parsed || {}, _ok: ok, _agent: 'qualifier', _raw: ok ? undefined : raw.substring(0, 500) } }];"}
+    },
+    {
+      "id": "validate-qualifier",
+      "name": "Validate_Qualifier",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2400, 0],
+      "parameters": {"conditions": {"options": {"leftValue": "", "caseSensitive": true, "typeValidation": "strict"}, "combinator": "and", "conditions": [{"id": "qualifier-ok", "operator": {"type": "boolean", "operation": "true", "singleValue": true}, "leftValue": "={{ $json._ok }}", "rightValue": true}]}, "options": {}}
+    },
+    {
+      "id": "responder-agent",
+      "name": "Responder_Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2640, 0],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SARVAM_BASE_URL || 'https://api.sarvam.ai/v1' }}/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [{"name": "Authorization", "value": "=Bearer {{ $env.SARVAM_API_KEY }}"}, {"name": "Content-Type", "value": "application/json"}]},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\"model\":\"{{ $env.SARVAM_MODEL || 'sarvam-m4' }}\",\"messages\":[{\"role\":\"system\",\"content\":\"You are a customer service responder. Draft a professional, personalized reply using the full context. Return ONLY JSON: {\\\"draft_reply\\\":\\\"Your complete reply text here\\\"}.\"},{\"role\":\"user\",\"content\":\"Inquiry: {{ $('Qualifier_JSON').item.json.original_inquiry }}\\nClassification: {{ JSON.stringify($('Qualifier_JSON').item.json.classification) }}\\nResearch: {{ JSON.stringify($('Qualifier_JSON').item.json.research) }}\\nQualification: {{ JSON.stringify($('Qualifier_JSON').item.json.qualification) }}\"}],\"max_tokens\":450}"
+      }
+    },
+    {
+      "id": "responder-json",
+      "name": "Responder_JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2880, 0],
+      "parameters": {"jsCode": "const raw = $input.first().json.choices?.[0]?.message?.content || $input.first().json.output || $input.first().json.message?.content || '';\nfunction extractJSON(text) { try { return JSON.parse(text.trim()); } catch {} const stripped = text.replace(/```(?:json)?\\s*|\\s*```/g, '').trim(); try { return JSON.parse(stripped); } catch {} const m1 = text.match(/\\{[^{}]*\\}/s); if (m1) { try { return JSON.parse(m1[0]); } catch {} } const m2 = text.match(/\\{.*\\}/s); if (m2) { try { return JSON.parse(m2[0]); } catch {} } return null; }\nconst parsed = extractJSON(raw);\nconst ok = !!parsed && parsed.draft_reply !== undefined;\nconst base = $('Qualifier_JSON').first().json;\nreturn [{ json: { ...base, draft_reply: parsed?.draft_reply || '', _ok: ok, _agent: 'responder', _raw: ok ? undefined : raw.substring(0, 500) } }];"}
+    },
+    {
+      "id": "validate-responder",
+      "name": "Validate_Responder",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [3120, 0],
+      "parameters": {"conditions": {"options": {"leftValue": "", "caseSensitive": true, "typeValidation": "strict"}, "combinator": "and", "conditions": [{"id": "responder-ok", "operator": {"type": "boolean", "operation": "true", "singleValue": true}, "leftValue": "={{ $json._ok }}", "rightValue": true}]}, "options": {}}
+    },
+    {
+      "id": "executor-agent",
+      "name": "Executor_Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3360, 0],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SARVAM_BASE_URL || 'https://api.sarvam.ai/v1' }}/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [{"name": "Authorization", "value": "=Bearer {{ $env.SARVAM_API_KEY }}"}, {"name": "Content-Type", "value": "application/json"}]},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\"model\":\"{{ $env.SARVAM_MODEL || 'sarvam-m4' }}\",\"messages\":[{\"role\":\"system\",\"content\":\"You are an execution coordinator. Confirm the reply is ready to send. Return ONLY JSON: {\\\"sent\\\":true,\\\"channel\\\":\\\"gmail\\\",\\\"logged\\\":true}.\"},{\"role\":\"user\",\"content\":\"Draft reply: {{ $('Responder_JSON').item.json.draft_reply }}\\nChannel: gmail\"}],\"max_tokens\":120}"
+      }
+    },
+    {
+      "id": "executor-json",
+      "name": "Executor_JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3600, 0],
+      "parameters": {"jsCode": "const raw = $input.first().json.choices?.[0]?.message?.content || $input.first().json.output || $input.first().json.message?.content || '';\nfunction extractJSON(text) { try { return JSON.parse(text.trim()); } catch {} const stripped = text.replace(/```(?:json)?\\s*|\\s*```/g, '').trim(); try { return JSON.parse(stripped); } catch {} const m1 = text.match(/\\{[^{}]*\\}/s); if (m1) { try { return JSON.parse(m1[0]); } catch {} } const m2 = text.match(/\\{.*\\}/s); if (m2) { try { return JSON.parse(m2[0]); } catch {} } return null; }\nconst parsed = extractJSON(raw);\nconst ok = !!parsed && ['sent','channel','logged'].every((key) => parsed[key] !== undefined);\nconst base = $('Responder_JSON').first().json;\nconst started = new Date(base.execution_meta?.started_at || Date.now()).getTime();\nreturn [{ json: { ...base, execution: parsed || {}, total_duration_ms: Date.now() - started, _ok: ok, _agent: 'executor', _raw: ok ? undefined : raw.substring(0, 500) } }];"}
+    },
+    {
+      "id": "validate-executor",
+      "name": "Validate_Executor",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [3840, 0],
+      "parameters": {"conditions": {"options": {"leftValue": "", "caseSensitive": true, "typeValidation": "strict"}, "combinator": "and", "conditions": [{"id": "executor-ok", "operator": {"type": "boolean", "operation": "true", "singleValue": true}, "leftValue": "={{ $json._ok }}", "rightValue": true}]}, "options": {}}
+    },
+    {
+      "id": "gmail-send",
+      "name": "Gmail_Send_Reply",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [4080, 0],
+      "parameters": {
+        "sendTo": "={{ $json.sender_email }}",
+        "subject": "=Re: {{ $json.subject }}",
+        "message": "={{ $json.draft_reply }}",
+        "options": {}
+      },
+      "credentials": {
+        "gmailOAuth2": {"id": "OdGLmcMGcKCExdMv", "name": "Gmail account"}
+      }
+    },
+    {
+      "id": "sheets-append",
+      "name": "Google_Sheets_Append_Row",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [4320, 0],
+      "parameters": {
+        "operation": "append",
+        "documentId": {"__rl": true, "mode": "id", "value": "={{ $env.GOOGLE_SHEET_ID || 'TODO_GOOGLE_SHEET_ID' }}"},
+        "sheetName": {"__rl": true, "mode": "name", "value": "={{ $env.GOOGLE_SHEET_NAME || 'Sheet1' }}"},
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "timestamp": "={{ $now }}",
+            "source_channel": "={{ $json.source_channel }}",
+            "sender_email": "={{ $json.sender_email }}",
+            "inquiry_snippet": "={{ $json.original_inquiry.substring(0, 100) }}",
+            "inquiry_type": "={{ $json.classification.type }}",
+            "priority": "={{ $json.classification.priority }}",
+            "lead_score": "={{ $json.qualification.lead_score }}",
+            "reply_sent": "true",
+            "total_duration_ms": "={{ $json.total_duration_ms }}",
+            "status": "success"
+          }
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "validation-failed",
+      "name": "Validation_Failed",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1200, 300],
+      "parameters": {"jsCode": "const failed = $input.first().json;\nthrow new Error(`Agent validation failed at ${failed._agent}: ${failed._raw || 'missing required keys'}`);"}
+    }
+  ],
+  "connections": {
+    "Gmail Trigger": {"main": [[{"node": "Normalize_Input", "type": "main", "index": 0}]]},
+    "Normalize_Input": {"main": [[{"node": "Classifier_Agent", "type": "main", "index": 0}]]},
+    "Classifier_Agent": {"main": [[{"node": "Classifier_JSON", "type": "main", "index": 0}]]},
+    "Classifier_JSON": {"main": [[{"node": "Validate_Classifier", "type": "main", "index": 0}]]},
+    "Validate_Classifier": {"main": [[{"node": "Researcher_Agent", "type": "main", "index": 0}], [{"node": "Validation_Failed", "type": "main", "index": 0}]]},
+    "Researcher_Agent": {"main": [[{"node": "Researcher_JSON", "type": "main", "index": 0}]]},
+    "Researcher_JSON": {"main": [[{"node": "Validate_Researcher", "type": "main", "index": 0}]]},
+    "Validate_Researcher": {"main": [[{"node": "Qualifier_Agent", "type": "main", "index": 0}], [{"node": "Validation_Failed", "type": "main", "index": 0}]]},
+    "Qualifier_Agent": {"main": [[{"node": "Qualifier_JSON", "type": "main", "index": 0}]]},
+    "Qualifier_JSON": {"main": [[{"node": "Validate_Qualifier", "type": "main", "index": 0}]]},
+    "Validate_Qualifier": {"main": [[{"node": "Responder_Agent", "type": "main", "index": 0}], [{"node": "Validation_Failed", "type": "main", "index": 0}]]},
+    "Responder_Agent": {"main": [[{"node": "Responder_JSON", "type": "main", "index": 0}]]},
+    "Responder_JSON": {"main": [[{"node": "Validate_Responder", "type": "main", "index": 0}]]},
+    "Validate_Responder": {"main": [[{"node": "Executor_Agent", "type": "main", "index": 0}], [{"node": "Validation_Failed", "type": "main", "index": 0}]]},
+    "Executor_Agent": {"main": [[{"node": "Executor_JSON", "type": "main", "index": 0}]]},
+    "Executor_JSON": {"main": [[{"node": "Validate_Executor", "type": "main", "index": 0}]]},
+    "Validate_Executor": {"main": [[{"node": "Gmail_Send_Reply", "type": "main", "index": 0}], [{"node": "Validation_Failed", "type": "main", "index": 0}]]},
+    "Gmail_Send_Reply": {"main": [[{"node": "Google_Sheets_Append_Row", "type": "main", "index": 0}]]}
+  },
+  "settings": {"executionOrder": "v1"},
+  "pinData": {},
+  "staticData": null,
+  "tags": []
+}

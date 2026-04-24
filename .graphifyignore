@@ -1,0 +1,41 @@
+# Secrets and local env
+.env
+.env.local
+.env.*.local
+client_secret*.json
+.obsidian/client_secret*.json
+
+# Dependency and build artifacts
+node_modules/
+**/node_modules/
+dist/
+build/
+
+# Python caches and virtualenvs
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+.venv/
+venv/
+
+# Runtime data and logs
+n8n/.n8n/
+*.log
+
+# IDE/editor and VCS internals
+.git/
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Tooling internals
+.opencode/
+
+# OS noise
+.DS_Store
+Thumbs.db
+
+# Binary docs (not useful for AST/code graphing)
+*.pdf

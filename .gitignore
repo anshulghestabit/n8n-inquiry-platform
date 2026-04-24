@@ -31,3 +31,9 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Graphify outputs
+graphify-out/
+
+client_secret_477425554928-56n82f8rvsdsn8tm04hugturvnbgjqe8.apps.googleusercontent.com.json
+.obsidian/client_secret*.json

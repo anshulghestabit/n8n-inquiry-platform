@@ -17,6 +17,11 @@ services:
       - N8N_AUTH_EXCLUDE_ENDPOINTS=rest/.*
       - WEBHOOK_URL=http://localhost:5678
       - GENERIC_TIMEZONE=Asia/Kolkata
+      - SARVAM_API_KEY=${SARVAM_API_KEY}
+      - SARVAM_BASE_URL=${SARVAM_BASE_URL}
+      - SARVAM_MODEL=${SARVAM_MODEL}
+      - GOOGLE_SHEET_ID=${GOOGLE_SHEET_ID:-}
+      - GOOGLE_SHEET_NAME=${GOOGLE_SHEET_NAME:-Sheet1}
     volumes:
       - ./n8n/.n8n:/home/node/.n8n
     networks:
