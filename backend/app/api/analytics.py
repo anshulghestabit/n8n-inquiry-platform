@@ -28,7 +28,7 @@ def _safe_average(values: list[float]) -> float:
 async def analytics_summary(current_user: dict = Depends(get_current_user)):
     db = get_supabase_admin_client()
     try:
-        result = db.table("executions").select("status,duration_ms,score").eq("user_id", current_user["id"]).execute()
+        result = db.table("executions").select("status,duration_ms,score,scorecard_detail").eq("user_id", current_user["id"]).execute()
     except Exception:
         raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "Database query failed", "DB_ERROR")
 
@@ -37,12 +37,24 @@ async def analytics_summary(current_user: dict = Depends(get_current_user)):
     success_count = sum(1 for row in rows if row.get("status") == "success")
     durations = [float(row["duration_ms"]) for row in rows if row.get("duration_ms") is not None]
     scores = [float(row["score"]) for row in rows if row.get("score") is not None]
+    relevance_scores = [
+        float((row.get("scorecard_detail") or {}).get("quality", {}).get("relevance_score"))
+        for row in rows
+        if (row.get("scorecard_detail") or {}).get("quality", {}).get("relevance_score") is not None
+    ]
+    completeness_scores = [
+        float((row.get("scorecard_detail") or {}).get("quality", {}).get("completeness_score"))
+        for row in rows
+        if (row.get("scorecard_detail") or {}).get("quality", {}).get("completeness_score") is not None
+    ]
 
     return {
         "total_executions": total,
         "success_rate": round((success_count / total) * 100, 2) if total else 0.0,
         "avg_duration_ms": round(_safe_average(durations), 2),
         "avg_score": round(_safe_average(scores), 2),
+        "avg_relevance_score": round(_safe_average(relevance_scores), 2),
+        "avg_completeness_score": round(_safe_average(completeness_scores), 2),
     }
 
 
@@ -72,7 +84,7 @@ async def analytics_chart(current_user: dict = Depends(get_current_user)):
 async def analytics_agents(current_user: dict = Depends(get_current_user)):
     db = get_supabase_admin_client()
     try:
-        execution_rows = db.table("executions").select("id").eq("user_id", current_user["id"]).execute().data or []
+        execution_rows = db.table("executions").select("id,duration_ms,scorecard_detail").eq("user_id", current_user["id"]).execute().data or []
     except Exception:
         raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "Database query failed", "DB_ERROR")
 
@@ -83,7 +95,9 @@ async def analytics_agents(current_user: dict = Depends(get_current_user)):
                 "agent_role": role,
                 "avg_duration_ms": 0.0,
                 "success_rate": 0.0,
+                "contribution_pct": 0.0,
                 "bottleneck_flag": False,
+                "bottleneck_explanation": "No execution samples yet",
                 "sample_size": 0,
             }
             for role in AGENT_ROLES
@@ -95,10 +109,19 @@ async def analytics_agents(current_user: dict = Depends(get_current_user)):
         raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "Database query failed", "DB_ERROR")
 
     role_rows: dict[str, list[dict]] = {role: [] for role in AGENT_ROLES}
+    total_duration_all_logs = 0.0
     for log in logs:
         role = log.get("agent_role")
         if role in role_rows:
             role_rows[role].append(log)
+            total_duration_all_logs += float(log.get("duration_ms") or 0)
+
+    bottleneck_counts = defaultdict(int)
+    for row in execution_rows:
+        detail = row.get("scorecard_detail") or {}
+        bottleneck_role = ((detail.get("bottleneck") or {}).get("role"))
+        if bottleneck_role in AGENT_ROLES:
+            bottleneck_counts[bottleneck_role] += 1
 
     output = []
     for role in AGENT_ROLES:
@@ -108,13 +131,23 @@ async def analytics_agents(current_user: dict = Depends(get_current_user)):
         success_count = sum(1 for row in rows if row.get("status") == "success")
         success_rate = round((success_count / len(rows)) * 100, 2) if rows else 0.0
         bottleneck = bool(rows) and max(durations) > (avg_duration * 2) if avg_duration else False
+        role_duration_sum = sum(durations)
+        contribution_pct = round((role_duration_sum / total_duration_all_logs) * 100, 2) if total_duration_all_logs else 0.0
+        bottleneck_samples = bottleneck_counts.get(role, 0)
+        bottleneck_explanation = (
+            f"Bottleneck in {bottleneck_samples} runs; avg {round(avg_duration, 2)}ms; contribution {contribution_pct}%"
+            if rows
+            else "No execution samples yet"
+        )
 
         output.append(
             {
                 "agent_role": role,
                 "avg_duration_ms": round(avg_duration, 2),
                 "success_rate": success_rate,
+                "contribution_pct": contribution_pct,
                 "bottleneck_flag": bottleneck,
+                "bottleneck_explanation": bottleneck_explanation,
                 "sample_size": len(rows),
             }
         )

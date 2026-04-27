@@ -34,7 +34,7 @@ type AgentLog = {
 
 type ExecutionStatus = {
   id: string
-  status: 'running' | 'success' | 'failed' | 'cancelled'
+  status: 'running' | 'paused' | 'success' | 'failed' | 'cancelled'
   duration_ms?: number | null
   finished_at?: string | null
   trace: AgentLog[]
@@ -159,6 +159,43 @@ export default function WorkflowDetailPage() {
     }
   }
 
+  async function handlePause() {
+    if (!execution?.id) {
+      return
+    }
+
+    setError('')
+    try {
+      await apiFetch(`/executions/${execution.id}/pause`, { method: 'POST' })
+      const latest = await apiFetch<ExecutionStatus>(`/executions/${execution.id}/status`)
+      setExecution(latest)
+      setRunning(false)
+      setMessage('Execution paused')
+    } catch (err) {
+      setError(err instanceof ApiRequestError ? err.message : 'Unable to pause execution')
+    }
+  }
+
+  async function handleResume() {
+    if (!execution?.id) {
+      return
+    }
+
+    setError('')
+    setMessage('')
+    setRunning(true)
+
+    try {
+      const resumed = await apiFetch<{ execution_id: string }>(`/executions/${execution.id}/resume`, { method: 'POST' })
+      const latest = await apiFetch<ExecutionStatus>(`/executions/${resumed.execution_id}/status`)
+      setExecution(latest)
+      setMessage('Execution resumed')
+    } catch (err) {
+      setRunning(false)
+      setError(err instanceof ApiRequestError ? err.message : 'Unable to resume execution')
+    }
+  }
+
   return (
     <>
       <header className="page-header">
@@ -225,6 +262,8 @@ export default function WorkflowDetailPage() {
               <div className="row-actions">
                 <button className="button" disabled={running} type="submit">{running ? 'Running...' : 'Run'}</button>
                 <button className="button secondary" disabled={!execution || execution.status !== 'running'} onClick={handleCancel} type="button">Stop</button>
+                <button className="button secondary" disabled={!execution || execution.status !== 'running'} onClick={handlePause} type="button">Pause</button>
+                <button className="button secondary" disabled={!execution || execution.status !== 'paused'} onClick={handleResume} type="button">Resume</button>
                 <button className="button secondary" disabled={!execution} onClick={handleRetry} type="button">Retry</button>
               </div>
             </form>

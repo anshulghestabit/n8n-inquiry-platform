@@ -8,13 +8,17 @@ type Summary = {
   success_rate: number
   avg_duration_ms: number
   avg_score: number
+  avg_relevance_score: number
+  avg_completeness_score: number
 }
 
 type AgentMetric = {
   agent_role: string
   avg_duration_ms: number
   success_rate: number
+  contribution_pct: number
   bottleneck_flag: boolean
+  bottleneck_explanation: string
   sample_size: number
 }
 
@@ -73,6 +77,14 @@ export default function AnalyticsPage() {
           <h2>Avg duration</h2>
           <div className="metric">{summary ? `${(summary.avg_duration_ms / 1000).toFixed(2)}s` : '--'}</div>
         </article>
+        <article className="panel">
+          <h2>Relevance</h2>
+          <div className="metric">{summary ? `${summary.avg_relevance_score}%` : '--'}</div>
+        </article>
+        <article className="panel">
+          <h2>Completeness</h2>
+          <div className="metric">{summary ? `${summary.avg_completeness_score}%` : '--'}</div>
+        </article>
       </section>
 
       <section className="panel" style={{ marginTop: '1rem' }}>
@@ -98,8 +110,9 @@ export default function AnalyticsPage() {
               <div>
                 <strong>{agent.agent_role}</strong>
                 <p className="muted">
-                  Avg {agent.avg_duration_ms}ms · Success {agent.success_rate}% · Samples {agent.sample_size}
+                  Avg {agent.avg_duration_ms}ms · Success {agent.success_rate}% · Contribution {agent.contribution_pct}% · Samples {agent.sample_size}
                 </p>
+                <p className="muted">{agent.bottleneck_explanation}</p>
               </div>
               <span className="status-pill">
                 <span className={`dot${agent.bottleneck_flag ? '' : ' ok'}`} />

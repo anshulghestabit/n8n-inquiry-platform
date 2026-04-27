@@ -25,6 +25,17 @@ type ExecutionDetail = {
   started_at: string
   finished_at?: string | null
   duration_ms?: number | null
+  scorecard_detail?: {
+    quality?: {
+      relevance_score?: number
+      completeness_score?: number
+      overall_quality_score?: number
+    }
+    bottleneck?: {
+      role?: string
+      explanation?: string
+    }
+  }
   agent_logs: AgentLog[]
 }
 
@@ -73,6 +84,10 @@ export default function HistoryDetailPage() {
               <h2>Score</h2>
               <div className="metric">{execution.score ?? '-'}</div>
               <p className="muted">Sender: {execution.sender_id || '-'}</p>
+              <p className="muted">
+                Relevance {execution.scorecard_detail?.quality?.relevance_score ?? '-'}% · Completeness {execution.scorecard_detail?.quality?.completeness_score ?? '-'}%
+              </p>
+              <p className="muted">{execution.scorecard_detail?.bottleneck?.explanation || 'No bottleneck insight yet.'}</p>
             </article>
           </section>
 

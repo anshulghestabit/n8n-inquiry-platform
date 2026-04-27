@@ -117,3 +117,60 @@ This backlog translates current project gaps into actionable items with priority
 
 - **Fast-track MVP-complete (P0 + critical P1):** ~6-10 working days
 - **Polished submission including P2:** ~10-14 working days
+
+---
+
+## Current Implementation Steps (Completed This Session)
+
+1. Implemented integrations management backend + UI:
+   - Added `GET /system/integrations` and connect/verify/disconnect actions.
+   - Made Integrations page operational with status, credential hint input, and action controls.
+
+2. Implemented execution control and runtime wiring updates:
+   - Added Pause/Resume controls and backend endpoints (`/executions/{id}/pause`, `/executions/{id}/resume`).
+   - Wired `trigger`, `retry`, and `resume` to dispatch real n8n runs.
+   - Added n8n execution polling/sync logic in execution status endpoint.
+
+3. Implemented scorecard and analytics depth improvements:
+   - Added relevance/completeness/overall quality metrics.
+   - Added deterministic bottleneck explanation and contribution percentage per agent.
+   - Surfaced these metrics in Analytics and History detail UI.
+
+4. Ran verification and graph update:
+   - Backend compile checks passed.
+   - Frontend lint passed.
+   - Graph updated via `graphify update .`.
+
+## What Is Left To Test (High Priority)
+
+### A) n8n live dispatch + full execution lifecycle (currently blocked)
+- **Observed in smoke run:** `POST /executions/trigger/{workflow_id}` returns `503` with `N8N_UNAVAILABLE`.
+- **Need to verify once n8n connectivity is fixed:**
+  - Trigger returns `201` with non-null `n8n_execution_id`.
+  - Status polling transitions from `running` to terminal state using live n8n data.
+  - Trace entries are populated from real n8n node execution data.
+  - Cancel and Pause invoke n8n stop endpoint correctly.
+
+### B) Pause/Resume behavior validation
+- **Need to test with real running execution:**
+  - Pause changes visible status to `paused`.
+  - Resume creates a new run linked to original execution (`resumed_from`).
+  - UI and history reflect state transitions accurately.
+
+### C) Analytics metric correctness under real traffic
+- **Need to verify after successful runs exist:**
+  - Relevance/completeness non-zero for valid runs.
+  - Agent `contribution_pct` sums and trends look reasonable.
+  - Bottleneck explanation consistently matches observed slowest role.
+
+### D) WhatsApp + Drive production-path parity tests (still open P0 items)
+- **WhatsApp path:** validate trigger channel `whatsapp` and `both` with one successful run in history/analytics.
+- **Drive retrieval path:** replace mock KB in canonical flow and verify source attribution as `google_drive`.
+
+## Latest Smoke Test Evidence
+
+- Artifact: `/tmp/smoke_e2e_results_round2.json`
+- Result summary:
+  - Passed: health, auth, workflow create, history, analytics endpoints.
+  - Failed: trigger dispatch to n8n (`N8N_UNAVAILABLE`).
+  - Graceful failure persistence confirmed in `executions.scorecard_detail.n8n_trigger_error`.

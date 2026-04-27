@@ -7,14 +7,14 @@ import { ApiRequestError, API_BASE_URL, apiFetch } from '@/lib/api'
 type Execution = {
   id: string
   source_channel: string
-  status: 'running' | 'success' | 'failed' | 'cancelled'
+  status: 'running' | 'paused' | 'success' | 'failed' | 'cancelled'
   inquiry_snippet?: string | null
   duration_ms?: number | null
   score?: number | null
   started_at: string
 }
 
-const statusOptions = ['all', 'running', 'success', 'failed', 'cancelled'] as const
+const statusOptions = ['all', 'running', 'paused', 'success', 'failed', 'cancelled'] as const
 const channelOptions = ['all', 'gmail', 'whatsapp', 'test'] as const
 
 function formatDate(value: string): string {
