@@ -1,0 +1,27 @@
+HestaBot Automation Platform - Sales Knowledge Base
+Product:
+Multi-agent customer inquiry automation for Gmail, Google Sheets logging, Google Drive knowledge retrieval, and workflow monitoring.
+Plans and Pricing:
+- Starter: INR 24,000/month; up to 10 users; Gmail inquiry automation, basic dashboard, email support.
+- Growth: INR 75,000/month; up to 50 users; 5-agent inquiry workflow, Google Sheets logging, workflow console, priority support.
+- Enterprise: custom pricing, starting at INR 1,80,000/month; 50+ users; dedicated success manager, SLA, custom integrations, security review.
+Implementation Timelines:
+- Gmail + Google Sheets setup: 5-7 business days.
+- With Google Drive knowledge base and custom routing: 10-14 business days.
+- Demo booking: 30-minute discovery/demo call within 2 business days.
+Commercial Notes:
+- Annual billing discount: 15%.
+- Pilot options available for teams evaluating enterprise rollout.
+- Security and compliance review available for enterprise procurement.
+Lead Qualification Guide (for AI reasoning):
+- HOT lead (score 8-10): mentions enterprise plan, pricing request, procurement/security review, demo request, team size, or timeline urgency.
+- WARM lead (score 6-7): asks for pricing or capabilities but no timeline/decision owner.
+- COLD lead (score 1-5): only exploratory/general questions without purchase intent.
+Signals that should increase lead score:
+- "enterprise", "pricing", "quote", "demo", "procurement", "RFP", "security review", "SLA", "team size", "timeline", "rollout", "implementation date".
+Plan
+·
+GPT-5.3 Codex
+OpenAI
+·
+medium

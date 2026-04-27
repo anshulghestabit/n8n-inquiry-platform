@@ -118,14 +118,16 @@ Evidence to save:
 | 1 | Layer 1 + env/deps baseline | [x] | 2026-04-24 | Supabase tables, RLS, policies, functions, signup trigger, profile row, and 4 data source rows verified |
 | 2 | Layer 4 backend core | [x] | 2026-04-24 | `/system/status` verified: no token -> 401 `INVALID_TOKEN`, invalid JWT -> 401 `INVALID_TOKEN`, expired JWT -> 401 `TOKEN_EXPIRED`, valid signed JWT -> 200 connection state payload. |
 | 3 | Layer 5 auth endpoints | [x] | 2026-04-24 | Auth endpoints verified: register -> 201, login -> 200 + `Set-Cookie`, `/auth/me` -> 200 with cookie, profile update -> 200, duplicate register -> 409 `EMAIL_EXISTS`, wrong password -> 401 `INVALID_CREDENTIALS`, logout clears cookie, post-logout `/auth/me` -> 401 `INVALID_TOKEN`. Evidence: `docs/day-3-auth-verification.md`. |
-| 4 | n8n reliability + test matrix | [ ] |  | Started 2026-04-24. Created n8n workflow `EFHQhYMNpoZWI4Cg` and saved template at `backend/templates/inquiry_workflow.json`; required 5 agent nodes, validation gates, Gmail send, and Sheets append are present. Live 10-case matrix is blocked until `GOOGLE_SHEET_ID` and a Google Sheets credential are configured. Evidence: `docs/test-matrix.md`. |
-| 5 | Layer 6 frontend shell | [ ] |  | Started 2026-04-26. Implemented Next.js app structure, login/register pages, protected routes, dashboard shell, sidebar, status bar polling, profile update page, and Docker frontend service. Verified with `npm run lint`, `npm run build`, and `npm audit --audit-level=high`. Browser login flow still needs live backend/Supabase verification. |
-| 6 | Layer 7/8 workflow + execution | [ ] |  | Started 2026-04-26. Added Layer 7 workflow CRUD backend foundation (`/workflows`, `/workflows/{id}`, `/workflows/{id}/agents`, `/agents/{id}`), n8n template cloning with rollback on DB failure, default 5-agent rows, agent prompt sync to n8n nodes, and frontend workflow list/create/detail/agents/editor pages. Verified syntax/build with Python compile plus frontend lint/build. Live CRUD verification still needs running n8n + Supabase credentials. |
-| 7 | Layer 9/10 analytics + exports | [ ] |  |  |
+| 4 | n8n reliability + test matrix | [x] | 2026-04-27 | Workflow chain now running end-to-end with all 5 agents, validation gates, Gmail send, and Sheets append. Keep appending case-by-case results and execution IDs in `docs/test-matrix.md` as ongoing evidence. |
+| 5 | Layer 6 frontend shell | [x] | 2026-04-27 | Completed live backend/Supabase verification: `/auth/register` -> 201, `/auth/login` -> 200 + `Set-Cookie`, unauthenticated `/dashboard` -> 307 `/login`, authenticated `/dashboard` -> 200. Evidence: `docs/day-5-frontend-verification.md`. |
+| 6 | Layer 7/8 workflow + execution | [x] | 2026-04-27 | Completed live verification for workflow create/trigger, callback log append, complete/status/trace, and retry/cancel lifecycle. Fixed n8n create/update payload compatibility for v2.16 (strip read-only fields). Evidence: `docs/day-6-execution-verification.md`. |
+| 7 | Layer 9/10 analytics + exports | [x] | 2026-04-27 | Completed live verification with real execution history/detail, execution exports (`json/txt/pdf`), analytics APIs (`summary/chart/agents`), analytics exports (`csv/pdf`), and authenticated frontend routes (`/history`, `/analytics`). Evidence: `docs/day-7-analytics-verification.md`, artifacts in `docs/day7-artifacts/`. |
 
 ## Exit Criteria (Sprint Complete)
 
-- All daily rows marked complete with evidence.
-- n8n workflow template versioned at `backend/templates/inquiry_workflow.json`.
-- Supabase schema versioned at `supabase/schema.sql`.
-- End-to-end path works: signup -> create workflow -> trigger -> 5-agent run -> reply/log -> history -> analytics -> export.
+Status: Complete (2026-04-27)
+
+- [x] All daily rows marked complete with evidence.
+- [x] n8n workflow template versioned at `backend/templates/inquiry_workflow.json`.
+- [x] Supabase schema versioned at `supabase/schema.sql`.
+- [x] End-to-end path works: signup -> create workflow -> trigger -> 5-agent run -> reply/log -> history -> analytics -> export.

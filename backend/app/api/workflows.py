@@ -16,6 +16,7 @@ router = APIRouter(tags=["workflows"])
 settings = get_settings()
 
 TEMPLATE_PATH = Path(__file__).resolve().parents[2] / "templates" / "inquiry_workflow.json"
+N8N_MUTABLE_KEYS = {"name", "nodes", "connections", "settings"}
 
 AgentRole = Literal["classifier", "researcher", "qualifier", "responder", "executor"]
 TriggerChannel = Literal["gmail", "whatsapp", "both"]
@@ -112,8 +113,8 @@ def clone_workflow_template(name: str, trigger_channel: TriggerChannel) -> dict:
         workflow = json.load(template_file)
 
     workflow.pop("id", None)
+    workflow.pop("active", None)
     workflow["name"] = name
-    workflow["active"] = False
 
     for node in workflow.get("nodes", []):
         node["id"] = f"{node.get('id', node.get('name', 'node'))}-{uuid4().hex[:8]}"
@@ -123,6 +124,10 @@ def clone_workflow_template(name: str, trigger_channel: TriggerChannel) -> dict:
             node["disabled"] = trigger_channel == "gmail"
 
     return workflow
+
+
+def sanitize_n8n_workflow_payload(workflow: dict) -> dict:
+    return {key: workflow[key] for key in N8N_MUTABLE_KEYS if key in workflow}
 
 
 async def n8n_request(method: str, path: str, payload: dict | None = None) -> dict:
@@ -145,7 +150,7 @@ async def n8n_request(method: str, path: str, payload: dict | None = None) -> di
 
 
 async def create_n8n_workflow(workflow: dict) -> dict:
-    return await n8n_request("POST", "/api/v1/workflows", workflow)
+    return await n8n_request("POST", "/api/v1/workflows", sanitize_n8n_workflow_payload(workflow))
 
 
 async def get_n8n_workflow(n8n_workflow_id: str) -> dict:
@@ -153,7 +158,11 @@ async def get_n8n_workflow(n8n_workflow_id: str) -> dict:
 
 
 async def update_n8n_workflow(n8n_workflow_id: str, workflow: dict) -> dict:
-    return await n8n_request("PUT", f"/api/v1/workflows/{n8n_workflow_id}", workflow)
+    return await n8n_request(
+        "PUT",
+        f"/api/v1/workflows/{n8n_workflow_id}",
+        sanitize_n8n_workflow_payload(workflow),
+    )
 
 
 async def delete_n8n_workflow(n8n_workflow_id: str) -> None:
