@@ -116,12 +116,38 @@ def clone_workflow_template(name: str, trigger_channel: TriggerChannel) -> dict:
     workflow.pop("active", None)
     workflow["name"] = name
 
+    has_gmail_trigger = False
+    has_whatsapp_trigger = False
+
     for node in workflow.get("nodes", []):
         node["id"] = f"{node.get('id', node.get('name', 'node'))}-{uuid4().hex[:8]}"
         if node.get("type") == "n8n-nodes-base.gmailTrigger":
+            has_gmail_trigger = True
             node["disabled"] = trigger_channel == "whatsapp"
         if node.get("type") == "n8n-nodes-base.whatsappTrigger":
+            has_whatsapp_trigger = True
             node["disabled"] = trigger_channel == "gmail"
+
+    if trigger_channel == "gmail" and not has_gmail_trigger:
+        raise api_error(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "Gmail trigger is not available in the workflow template",
+            "TRIGGER_NOT_SUPPORTED",
+        )
+
+    if trigger_channel == "whatsapp" and not has_whatsapp_trigger:
+        raise api_error(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "WhatsApp trigger is not available in the workflow template",
+            "TRIGGER_NOT_SUPPORTED",
+        )
+
+    if trigger_channel == "both" and (not has_gmail_trigger or not has_whatsapp_trigger):
+        raise api_error(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "Both-channel trigger mode requires Gmail and WhatsApp trigger nodes",
+            "TRIGGER_NOT_SUPPORTED",
+        )
 
     return workflow
 
@@ -173,26 +199,41 @@ def agent_rows(workflow_id: str) -> list[dict]:
     return [{**agent, "workflow_id": workflow_id} for agent in DEFAULT_AGENTS]
 
 
-def replace_system_prompt(node: dict, system_prompt: str) -> None:
+def replace_system_prompt(node: dict, system_prompt: str) -> bool:
     parameters = node.setdefault("parameters", {})
 
     if isinstance(parameters.get("jsonBody"), str):
         try:
             body = json.loads(parameters["jsonBody"])
         except json.JSONDecodeError:
-            return
+            expression_body = parameters["jsonBody"]
+            escaped_prompt = json.dumps(system_prompt)
+            marker = '"role": "system", "content": '
+            marker_index = expression_body.find(marker)
+            if marker_index != -1:
+                start = marker_index + len(marker)
+                if start < len(expression_body) and expression_body[start] == '"':
+                    scan = start + 1
+                    while scan < len(expression_body):
+                        if expression_body[scan] == '"' and expression_body[scan - 1] != "\\":
+                            parameters["jsonBody"] = expression_body[:start] + escaped_prompt + expression_body[scan + 1 :]
+                            return True
+                        scan += 1
+            return False
         messages = body.get("messages", [])
         for message in messages:
             if message.get("role") == "system":
                 message["content"] = system_prompt
                 parameters["jsonBody"] = json.dumps(body)
-                return
+                return True
 
     values = parameters.get("messages", {}).get("values", [])
     for message in values:
         if message.get("role") == "system" or message.get("type") == "system":
             message["content"] = system_prompt
-            return
+            return True
+
+    return False
 
 
 async def sync_agent_to_n8n(n8n_workflow_id: str, agent_role: AgentRole, system_prompt: str) -> None:
@@ -200,7 +241,13 @@ async def sync_agent_to_n8n(n8n_workflow_id: str, agent_role: AgentRole, system_
     node_name = ROLE_TO_NODE[agent_role]
     for node in workflow.get("nodes", []):
         if node.get("name") == node_name:
-            replace_system_prompt(node, system_prompt)
+            updated = replace_system_prompt(node, system_prompt)
+            if not updated:
+                raise api_error(
+                    status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    "Unable to update system prompt in n8n workflow node",
+                    "N8N_PROMPT_UPDATE_FAILED",
+                )
             await update_n8n_workflow(n8n_workflow_id, workflow)
             return
     raise api_error(status.HTTP_404_NOT_FOUND, "Agent node not found in n8n workflow", "NOT_FOUND")
@@ -219,6 +266,7 @@ async def create_workflow(data: WorkflowCreateRequest, current_user: dict = Depe
     db = get_supabase_admin_client()
     n8n_workflow = await create_n8n_workflow(clone_workflow_template(data.name, data.trigger_channel))
     n8n_workflow_id = str(n8n_workflow.get("id", ""))
+    workflow_id = None
 
     try:
         workflow_result = (
@@ -237,10 +285,19 @@ async def create_workflow(data: WorkflowCreateRequest, current_user: dict = Depe
             .execute()
         )
         workflow = workflow_result.data[0]
+        workflow_id = workflow["id"]
         db.table("agents").insert(agent_rows(workflow["id"])).execute()
     except Exception:
+        if workflow_id:
+            try:
+                db.table("workflows").delete().eq("id", workflow_id).execute()
+            except Exception:
+                pass
         if n8n_workflow_id:
-            await delete_n8n_workflow(n8n_workflow_id)
+            try:
+                await delete_n8n_workflow(n8n_workflow_id)
+            except Exception:
+                pass
         raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "Database query failed", "DB_ERROR")
 
     return workflow
