@@ -45,5 +45,8 @@ Full plan.md
 Plan.md
 AGENTS.md
 CLAUDE.md
+Claude.md
+.graphifyignore
+mvp_multi_agent_customer_inquiry_handler.json
 n8n-Multi-Agent-Customer-Inquiry-Automation-Platform-1776146892275.pdf
 /appa.json
