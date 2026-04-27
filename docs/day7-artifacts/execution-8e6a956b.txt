@@ -1,0 +1,52 @@
+n8n Inquiry Platform - Execution Report
+============================================
+Execution ID: 8e6a956b-0544-4fbc-a1cd-2d7bff0e8ec2
+Workflow ID: d4bcae0b-f321-451d-8617-69e0bde87243
+Status: success
+Source channel: test
+Sender: day6-test@example.com
+Started at: 2026-04-27 12:14:40
+Finished at: 2026-04-27 12:19:14
+Duration (ms): 1820
+Score: 9
+
+Inquiry
+--------------------------------------------
+Need pricing details for 50 seats and onboarding timeline.
+
+Final Reply
+--------------------------------------------
+Thanks for your inquiry. Enterprise pricing and onboarding options have been shared with the sales team for immediate follow-up.
+
+Agent Trace
+--------------------------------------------
+1. Classifier
+   Status: success
+   Duration (ms): 210
+   Input: {'inquiry': 'Need pricing details for 50 seats and onboarding timeline.'}
+   Output: {'type': 'sales_inquiry', 'priority': 'high', 'confidence': 0.94}
+   Error: -
+2. Researcher
+   Status: success
+   Duration (ms): 365
+   Input: {'type': 'sales_inquiry'}
+   Output: {'source': 'knowledge-base/pricing.md', 'relevant_info': 'Enterprise plan supports seat-based pricing with implementation support'}
+   Error: -
+3. Qualifier
+   Status: success
+   Duration (ms): 180
+   Input: {'intent': 'purchase'}
+   Output: {'reason': 'Clear budget scope and timeline urgency', 'lead_score': 9}
+   Error: -
+4. Responder
+   Status: success
+   Duration (ms): 540
+   Input: {'lead_score': 9}
+   Output: {'draft_reply': 'Thanks for reaching out. We can support 50 seats and a guided onboarding timeline.'}
+   Error: -
+5. Executor
+   Status: success
+   Duration (ms): 225
+   Input: {'draft_reply': 'Thanks for reaching out. We can support 50 seats and a guided onboarding timeline.'}
+   Output: {'sent': True, 'logged': True, 'channel': 'gmail'}
+   Error: -

@@ -1,0 +1,655 @@
+# sales_inquiry.txt
+# HestaBit Sales Inquiry Knowledge Base
+# Purpose: Used by the n8n Researcher Agent when classification.type = "sales_inquiry".
+# Pricing is intentionally excluded. For pricing requests, route the prospect to a consultation/demo call.
+
+## 1. Company Positioning
+
+HestaBit is a software development and digital transformation company that helps startups, SMBs, and enterprises conceptualize, design, develop, launch, modernize, and scale technology products. The company works across web, mobile, AI/ML, digital transformation, enterprise software, cloud, automation, and emerging technology solutions.
+
+Position HestaBit as a technology partner, not just a coding vendor. The response should emphasize product thinking, business understanding, secure engineering, scalable architecture, transparent delivery, and long-term post-launch support.
+
+Core positioning statement:
+"HestaBit helps businesses turn ideas and operational challenges into scalable digital products through strategy, UI/UX, web and mobile development, AI-enabled automation, enterprise integrations, cloud infrastructure, and ongoing support."
+
+Use this file to answer sales inquiries about services, capabilities, consultation, engagement process, technology fit, project discovery, and next steps. Do not quote or estimate pricing.
+
+## 2. Services HestaBit Can Offer
+
+### 2.1 Web Application Development
+
+HestaBit offers custom web application development for B2B, B2C, SaaS, marketplace, dashboard, portal, workflow, and platform-based products.
+
+Relevant capabilities:
+- Custom web app development
+- SaaS platforms
+- Business portals and admin dashboards
+- Customer-facing web platforms
+- Internal workflow systems
+- Real-time applications
+- Marketplace platforms
+- Progressive Web Apps
+- API-first web systems
+- Secure backend development
+- Scalable frontend architecture
+- Web app modernization
+- Performance optimization
+- Maintenance and feature enhancement
+
+Technology references that can be mentioned when appropriate:
+- React.js
+- Angular
+- Node.js
+- Laravel
+- Redis
+- AWS
+- Real-time/socket-based development
+- API integrations
+
+How to respond:
+If the lead asks for a website, portal, SaaS, admin panel, dashboard, marketplace, booking platform, CRM-like system, or workflow platform, position web app development as the primary service. Ask for goals, target users, must-have features, timeline, integrations, and whether they need design, development, or both.
+
+### 2.2 Mobile App Development
+
+HestaBit offers mobile app development for startups and businesses that need Android, iOS, hybrid, or cross-platform applications.
+
+Relevant capabilities:
+- Android app development
+- iOS app development
+- Hybrid app development
+- React Native app development
+- MVP mobile app development
+- Enterprise mobile apps
+- Consumer mobile apps
+- On-demand apps
+- Social networking apps
+- eCommerce mobile apps
+- Travel and booking apps
+- Finance and expense-tracking apps
+- Healthcare and education apps
+- App prototyping
+- UI/UX for mobile apps
+- App beta launch support
+- Feedback analysis after launch
+- App maintenance, optimization, and updates
+
+HestaBit’s mobile app process can be described as:
+1. Understanding the app idea and business goal
+2. Defining the unique value proposition
+3. Documenting features and user flows
+4. Creating wireframes and prototypes
+5. Designing UI/UX
+6. Developing Android, iOS, or hybrid app
+7. Running QA and beta testing
+8. Launching the app
+9. Improving the app based on user feedback
+10. Providing maintenance and support
+
+How to respond:
+If the lead asks for an app, ask whether they need Android, iOS, both, or a faster cross-platform launch. If they are early-stage, suggest MVP scoping, prototype, and feature prioritization before full development.
+
+### 2.3 Hybrid / Cross-Platform App Development
+
+HestaBit can help clients build hybrid and cross-platform apps when they want faster time-to-market, broader platform coverage, and efficient development.
+
+Relevant capabilities:
+- React Native development
+- Shared codebase for iOS and Android
+- MVP app development
+- Faster go-to-market
+- Cross-platform UI implementation
+- API integration
+- App security considerations
+- Maintenance and release support
+
+How to respond:
+If the lead is budget-conscious, time-sensitive, or launching an MVP, recommend a discovery call to evaluate whether hybrid/cross-platform development is the right fit. Do not discuss pricing.
+
+### 2.4 Android App Development
+
+HestaBit offers Android app development for consumer, startup, and enterprise use cases.
+
+Relevant capabilities:
+- Native Android applications
+- Android UI implementation
+- Backend/API integration
+- Chat and messaging features
+- Streaming-related integrations
+- Enterprise app workflows
+- App performance optimization
+- Android app maintenance
+- Play Store launch support
+
+How to respond:
+If a prospect specifically asks for Android, acknowledge native Android capability and ask about the target devices, user roles, core features, backend requirements, and desired launch timeline.
+
+### 2.5 iOS App Development
+
+HestaBit offers custom iOS app development for iPhone-focused products and enterprise applications.
+
+Relevant capabilities:
+- Custom iOS app development
+- iPhone app UI/UX design
+- Enterprise iPhone app solutions
+- iOS widgets/extensions when required
+- App support, optimization, and maintenance
+- App Store launch support
+
+How to respond:
+If the lead asks for iOS or Apple ecosystem support, emphasize native design standards, smooth user experience, secure implementation, and long-term maintainability.
+
+### 2.6 UI/UX Design and Product Prototyping
+
+HestaBit can support clients before development through product discovery, wireframes, prototypes, design systems, and user journey planning.
+
+Relevant capabilities:
+- Product discovery workshops
+- User flow mapping
+- Wireframes
+- Clickable prototypes
+- UI design
+- UX strategy
+- Design systems
+- Mobile app UX
+- Web app UX
+- MVP feature prioritization
+- Usability-focused design
+
+How to respond:
+If a lead has only an idea, recommend starting with discovery, wireframes, and prototype. If they already have designs, ask whether they want development only or design review plus development.
+
+### 2.7 AI, ML, and Generative AI Solutions
+
+HestaBit offers AI-driven solutions for automation, analytics, decision support, virtual assistants, and intelligent business workflows.
+
+Relevant capabilities:
+- Artificial Intelligence solutions
+- Machine Learning solutions
+- Generative AI solutions
+- Predictive analytics
+- Cognitive analytics
+- AI automation
+- AI virtual assistants
+- AI agents for business workflows
+- AI-enabled customer support systems
+- Data-driven insights
+- Process automation using AI
+- Custom AI integrations into existing products
+
+How to respond:
+If the lead asks about chatbots, AI agents, automation, recommendation systems, analytics, classification, summarization, workflow assistants, or business intelligence, position HestaBit’s AI/ML and digital transformation capabilities. Ask about data availability, business process, target users, expected outputs, integrations, and compliance/security needs.
+
+### 2.8 AI Virtual Assistant / AI Agent Solutions
+
+HestaBit can help businesses deploy AI assistants and AI agents for customer service, lead handling, internal operations, healthcare, finance, retail, and other industry workflows.
+
+Relevant capabilities:
+- AI customer support assistant
+- AI lead qualification assistant
+- Internal operations assistant
+- Workflow automation agents
+- Industry-specific AI agents
+- Integration with CRM, email, chat, and business systems
+- Secure data handling and role-based access considerations
+- Human escalation paths for sensitive cases
+
+How to respond:
+If the prospect asks for an AI agent, explain that HestaBit can help design the workflow, define guardrails, integrate the assistant with business systems, and build an approval/escalation process where needed.
+
+### 2.9 Digital Transformation Services
+
+HestaBit offers digital transformation services for businesses modernizing operations, customer experience, infrastructure, and enterprise workflows.
+
+Relevant capabilities:
+- Business process digitization
+- Custom enterprise software
+- Workflow automation
+- CRM implementation or customization
+- SAP-related digital solutions
+- Microsoft technology solutions
+- IoT solutions
+- AI/ML-driven transformation
+- Cloud and infrastructure modernization
+- Application modernization
+- Enterprise app development
+- ITIL-based application management services
+- Analytics and reporting systems
+
+Industries that can be mentioned:
+- Education
+- Infotainment
+- Healthcare
+- Retail
+- Manufacturing
+- Fintech
+- Government
+- Security
+- Big data
+
+How to respond:
+If the lead is an established company asking about modernization, automation, enterprise software, or operational efficiency, position digital transformation as the primary service. Ask about current systems, pain points, user roles, existing tools, integration requirements, and desired business outcomes.
+
+### 2.10 Enterprise Solutions
+
+HestaBit can support enterprise clients with scalable digital platforms, business applications, cloud-backed systems, analytics, integrations, and managed support.
+
+Relevant capabilities:
+- Enterprise application development
+- Custom CRM workflows
+- Business dashboards
+- ERP/SAP-related workflows
+- Internal tools
+- Role-based access systems
+- System integrations
+- Data dashboards and reporting
+- Cloud infrastructure setup
+- Application management and support
+- Security-conscious development
+- Scalable architecture planning
+
+How to respond:
+If the prospect mentions enterprise, departments, workflows, compliance, large user bases, system integration, or internal business systems, ask clarifying questions about scale, access roles, existing software, security needs, and deployment expectations.
+
+### 2.11 Cloud, Infrastructure, and DevOps-Oriented Support
+
+HestaBit can support cloud-backed applications and infrastructure requirements for scalable products.
+
+Relevant capabilities:
+- Cloud hosting support
+- AWS-backed application hosting
+- Infrastructure planning
+- Application deployment
+- Environment setup
+- Performance and scalability planning
+- Monitoring and maintenance support
+- Backend architecture
+- API infrastructure
+
+How to respond:
+If the lead asks about hosting, scalability, deployment, or cloud, explain that HestaBit can help plan and implement the infrastructure around the application. Ask about traffic expectations, uptime needs, deployment preferences, and whether they already use AWS or another cloud.
+
+### 2.12 Software Maintenance, Support, and Optimization
+
+HestaBit can support products after launch through maintenance, performance optimization, security updates, bug fixes, and feature enhancements.
+
+Relevant capabilities:
+- Post-launch support
+- App maintenance
+- Web app maintenance
+- Bug fixing
+- Performance optimization
+- Feature enhancement
+- Version upgrades
+- QA support
+- Monitoring and issue resolution
+- Technical consultation
+
+How to respond:
+If the lead has an existing product, ask for the current tech stack, known issues, documentation availability, code repository status, deployment setup, and priority areas.
+
+### 2.13 Quality Assurance and Project Management
+
+HestaBit can support projects with QA, delivery management, communication, and release coordination.
+
+Relevant capabilities:
+- Manual QA
+- Functional testing
+- Regression testing
+- Mobile app testing
+- Web app testing
+- Release support
+- Project communication
+- Milestone tracking
+- Senior resource involvement
+- Feedback management after beta launch
+
+How to respond:
+For serious leads, mention that the team can help structure the project from discovery through release with QA and project management support.
+
+## 3. Lead Qualification Rules
+
+The Qualifier Agent should score sales leads based on fit and urgency. Use these rules unless the workflow has a separate scoring rubric.
+
+### High-quality lead indicators
+- Prospect describes a clear product, app, platform, AI workflow, or digital transformation need
+- Prospect mentions business goals, target users, or industry context
+- Prospect asks for a demo, consultation, proposal, discovery call, timeline, or technical feasibility
+- Prospect represents a company, startup, enterprise, or funded initiative
+- Prospect mentions existing product needing modernization or scaling
+- Prospect asks for web app, mobile app, AI solution, CRM, cloud, automation, or enterprise software
+- Prospect provides enough details to start discovery
+
+### Medium-quality lead indicators
+- Prospect is exploring options but has a relevant project idea
+- Prospect gives a broad request such as "we need an app" or "we need automation"
+- Prospect asks for capabilities without clear scope
+- Prospect asks for pricing only but service fit is likely
+- Prospect needs education on what solution type fits best
+
+### Low-quality lead indicators
+- No clear project need
+- Unrelated inquiry
+- Job application or vendor solicitation
+- Requests only pricing with no business context and no service fit
+- Spam, generic outreach, or unclear message
+
+Suggested scoring:
+- 9-10: Clear service fit, strong business intent, defined project, asks for consultation/demo/proposal
+- 7-8: Good fit, meaningful project details, likely buyer but needs discovery
+- 5-6: Potential fit but vague scope or early exploration
+- 3-4: Weak fit, limited information, unclear buying intent
+- 1-2: Not a sales lead, spam, unrelated, or wrong audience
+
+## 4. Inquiry Type Mapping for Sales Inquiries
+
+Map common prospect language to the most relevant service category.
+
+- "I need a mobile app" → Mobile App Development
+- "Android app" → Android App Development
+- "iPhone app" or "iOS app" → iOS App Development
+- "App for both Android and iOS" → Hybrid/Cross-Platform or Native Mobile App Development
+- "React Native app" → Hybrid/Cross-Platform App Development
+- "Web portal" → Web Application Development
+- "SaaS platform" → Web Application Development + Cloud/Backend Architecture
+- "Marketplace" → Web Application Development + Mobile App Development if app is needed
+- "Admin dashboard" → Web Application Development + UI/UX + Backend
+- "CRM" → Enterprise Solutions / Digital Transformation
+- "SAP" → Enterprise Digital Transformation
+- "AI chatbot" → AI Virtual Assistant / AI Agent Solution
+- "AI agent" → AI Agent Solution + Workflow Automation
+- "Machine learning" → AI/ML Solution
+- "Predictive analytics" → AI/ML + Analytics
+- "Automation" → Digital Transformation + AI/Workflow Automation
+- "IoT" → Digital Transformation / Enterprise IoT Solution
+- "Cloud" → Cloud/Infrastructure Support
+- "Modernize existing system" → Digital Transformation + Software Modernization
+- "Need developers" → Dedicated Development / Web/Mobile/Backend capability, ask for stack and duration
+- "Maintenance" → Software Maintenance and Support
+
+## 5. Recommended Sales Response Structure
+
+The Responder Agent should use this structure for sales inquiries:
+
+1. Warm greeting and acknowledgement
+2. Briefly restate the prospect’s need
+3. Match the need to relevant HestaBit service areas
+4. Mention 2-4 relevant capabilities without overwhelming the prospect
+5. Ask 3-5 useful discovery questions
+6. Offer a consultation/demo/discovery call
+7. Avoid pricing; say pricing depends on scope and can be discussed after discovery
+8. Close professionally
+
+Do not make unsupported promises. Do not guarantee timelines, costs, funding outcomes, downloads, revenue, or ranking.
+
+## 6. Pricing Policy
+
+Do not provide pricing, estimates, packages, hourly rates, fixed costs, retainers, discounts, or budget commitments.
+
+If asked about pricing, respond with:
+"The exact investment depends on the scope, platforms, features, integrations, timeline, and support needs. We can first understand your requirements in a discovery call and then share a tailored proposal."
+
+If the prospect insists on a range, do not invent numbers. Ask for scope details and offer to schedule a consultation.
+
+## 7. Discovery Questions by Service
+
+### Web App / SaaS / Portal
+Ask:
+- What problem should the platform solve?
+- Who are the main user roles?
+- Do you need an MVP or a full-scale product?
+- What features are must-have for launch?
+- Do you need integrations with payment, CRM, email, analytics, or other systems?
+- Do you already have designs or should HestaBit support UI/UX too?
+
+### Mobile App
+Ask:
+- Do you need Android, iOS, or both?
+- Is this an MVP or a mature product build?
+- What are the core user flows?
+- Do you need login, payments, chat, booking, location, notifications, or media upload?
+- Do you have designs or wireframes?
+- Do you need backend/API development as well?
+
+### AI / ML / AI Agent
+Ask:
+- What business process should the AI solution automate or improve?
+- What data sources should it use?
+- Should it answer users, classify requests, recommend actions, generate reports, or take workflow actions?
+- Do you need human approval before final actions?
+- What systems should it integrate with, such as CRM, email, WhatsApp, website, ERP, or database?
+- Are there privacy, compliance, or security constraints?
+
+### Enterprise / Digital Transformation
+Ask:
+- What current process or system is causing friction?
+- Which teams or departments will use the solution?
+- What tools are already in place?
+- What integrations are required?
+- What reporting or analytics are needed?
+- Is this for internal operations, customer experience, or both?
+
+### Maintenance / Modernization
+Ask:
+- What is the current tech stack?
+- Is the codebase accessible and documented?
+- What issues are you facing today?
+- Are you looking for bug fixes, performance improvement, new features, or full rebuild?
+- Where is the app currently hosted?
+
+## 8. Standard Reply Templates
+
+### 8.1 General Sales Inquiry
+
+Hi [Name],
+
+Thanks for reaching out. Based on your message, this sounds like a good fit for HestaBit’s [matched service] capabilities.
+
+We can help with [capability 1], [capability 2], and [capability 3], while also supporting discovery, UI/UX, development, QA, launch, and post-launch improvements as needed.
+
+To suggest the right approach, could you share a few details?
+1. What are you trying to build or improve?
+2. Who are the target users?
+3. Which platforms do you need: web, Android, iOS, or all of these?
+4. Do you already have designs, documentation, or an existing product?
+5. Are there any integrations or timeline expectations we should know about?
+
+Pricing depends on the scope and technical requirements, so the best next step would be a short discovery call. After that, we can share a tailored proposal.
+
+Best regards,
+HestaBit Team
+
+### 8.2 Mobile App Inquiry
+
+Hi [Name],
+
+Thanks for contacting HestaBit. We can help you plan, design, build, launch, and maintain your mobile application across Android, iOS, or cross-platform frameworks depending on your goals.
+
+For an early-stage idea, we usually recommend starting with feature prioritization, user flows, wireframes, and an MVP roadmap before moving into development. If you already have designs or documentation, we can review them and suggest the best technical approach.
+
+Could you share:
+1. Whether you need Android, iOS, or both?
+2. The main problem the app will solve?
+3. The must-have features for the first release?
+4. Whether you need backend/API development?
+5. Whether you already have wireframes or designs?
+
+We do not provide one-size-fits-all pricing because it depends on scope, platforms, integrations, and timeline. A discovery call would help us understand the requirements and recommend the right path forward.
+
+Best regards,
+HestaBit Team
+
+### 8.3 Web App / SaaS Inquiry
+
+Hi [Name],
+
+Thanks for reaching out. HestaBit can support custom web application and SaaS platform development, including frontend, backend, dashboards, portals, real-time features, integrations, cloud deployment, QA, and ongoing maintenance.
+
+To understand the scope better, could you share:
+1. What type of platform you want to build?
+2. Who the main users are?
+3. The key workflows or features required for launch?
+4. Any third-party integrations needed?
+5. Whether you already have designs, documentation, or a technical team?
+
+Once we understand the scope, we can recommend the right architecture and share a tailored proposal. Pricing is best discussed after discovery because it depends on features, integrations, complexity, and delivery expectations.
+
+Best regards,
+HestaBit Team
+
+### 8.4 AI / Automation Inquiry
+
+Hi [Name],
+
+Thanks for reaching out. HestaBit can help design and build AI-enabled solutions such as AI agents, virtual assistants, predictive analytics systems, workflow automation, and intelligent business tools integrated with your existing systems.
+
+To recommend the right approach, could you share:
+1. What process or use case you want to automate?
+2. What data sources or systems the AI solution should connect with?
+3. What outputs or actions the AI should produce?
+4. Whether human approval is required before final actions?
+5. Any privacy, compliance, or security constraints?
+
+The exact effort depends on the workflow, integrations, data readiness, and desired automation depth. A discovery call would help us map the right solution and next steps.
+
+Best regards,
+HestaBit Team
+
+### 8.5 Enterprise / Digital Transformation Inquiry
+
+Hi [Name],
+
+Thanks for contacting HestaBit. We can help with digital transformation initiatives including enterprise applications, CRM workflows, business dashboards, AI/ML-enabled automation, IoT-related systems, cloud-backed platforms, and application modernization.
+
+To understand your requirements better, could you share:
+1. Which business process or system you want to improve?
+2. Which teams or departments will use the solution?
+3. What tools or systems are already in place?
+4. What integrations and reporting needs are involved?
+5. Whether you need a new solution, modernization, or ongoing support?
+
+Pricing depends on the scope and complexity, so the best next step would be a consultation where we can understand the requirements and recommend a tailored solution.
+
+Best regards,
+HestaBit Team
+
+### 8.6 Pricing-Only Inquiry
+
+Hi [Name],
+
+Thanks for reaching out. We would be happy to help, but we do not provide generic pricing without understanding the scope first.
+
+The investment depends on factors such as the required platforms, features, integrations, design needs, backend complexity, timeline, and post-launch support. A short discovery call would help us understand your requirements and share a tailored proposal.
+
+Could you briefly share what you want to build, the target users, and whether you need web, mobile, AI, or enterprise software support?
+
+Best regards,
+HestaBit Team
+
+### 8.7 Existing Product / Maintenance Inquiry
+
+Hi [Name],
+
+Thanks for contacting HestaBit. We can help review, improve, maintain, or modernize your existing product depending on the current state of the codebase and business requirements.
+
+Could you share:
+1. The current tech stack?
+2. Whether the source code and documentation are available?
+3. The main issues or improvements you need?
+4. Whether you need bug fixes, performance optimization, new features, or a rebuild?
+5. Where the product is currently hosted?
+
+After reviewing the details, we can suggest the best approach and next steps. Pricing depends on scope and effort, so we can discuss that after the initial discovery.
+
+Best regards,
+HestaBit Team
+
+## 9. Tone and Style Guidelines
+
+The Responder Agent should sound:
+- Professional
+- Consultative
+- Clear
+- Helpful
+- Confident but not exaggerated
+- Concise but complete
+
+Avoid:
+- Overpromising
+- Exact pricing
+- Unsupported claims
+- Long generic paragraphs
+- Technical jargon unless the prospect uses it first
+- Saying yes to every requirement without discovery
+- Making legal, compliance, or security guarantees
+
+## 10. Escalation Rules
+
+Escalate or request human review when:
+- Prospect asks for pricing, contract terms, payment terms, legal agreements, or procurement documents
+- Prospect asks for guaranteed delivery date or fixed cost
+- Prospect shares confidential business data, credentials, or sensitive user information
+- Prospect asks for regulated industry compliance commitments
+- Prospect requests an NDA
+- Prospect asks for partnership, vendor onboarding, or enterprise procurement
+- Prospect has a very large or complex enterprise requirement
+- Prospect is upset, complains about prior engagement, or threatens legal action
+
+Suggested escalation wording:
+"This looks like something our consulting team should review directly. I can help arrange a discovery call so we can understand the details and guide you properly."
+
+## 11. Agent Output Guidance
+
+For Researcher Agent output, return JSON like:
+{
+  "relevant_info": "HestaBit can support custom web and mobile app development, AI/ML solutions, digital transformation, enterprise software, cloud-backed platforms, UI/UX, QA, launch support, and post-launch maintenance. Pricing is scope-dependent and should be discussed after discovery.",
+  "source": "sales_inquiry_kb",
+  "matched_services": ["Web Application Development", "Mobile App Development", "AI/ML Solutions"],
+  "recommended_next_step": "Schedule a discovery call and collect project scope details."
+}
+
+For Qualifier Agent output, return JSON like:
+{
+  "lead_score": 8,
+  "reason": "The prospect has a clear project need and strong service fit, but scope details are still required before proposal.",
+  "recommended_action": "Ask discovery questions and offer consultation."
+}
+
+For Responder Agent output, return JSON like:
+{
+  "draft_reply": "Complete customer-facing response here."
+}
+
+## 12. Service Fit Summary
+
+HestaBit can respond positively to sales inquiries related to:
+- Web application development
+- SaaS platform development
+- Mobile app development
+- Android app development
+- iOS app development
+- Hybrid/cross-platform app development
+- UI/UX design
+- Prototyping
+- MVP development
+- AI solutions
+- Machine learning solutions
+- Generative AI solutions
+- AI virtual assistants
+- AI agents
+- Workflow automation
+- Predictive analytics
+- Digital transformation
+- Enterprise application development
+- CRM and business workflow solutions
+- SAP-related digital solutions
+- Microsoft technology solutions
+- IoT solutions
+- Cloud-backed applications
+- Application modernization
+- Software maintenance
+- QA and release support
+- Post-launch optimization
+
+## 13. Final Instruction for Agents
+
+When using this file, the system should answer sales inquiries by matching the prospect’s request to the most relevant HestaBit services, asking intelligent discovery questions, and routing the prospect toward a consultation or tailored proposal. Never include pricing.
