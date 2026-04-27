@@ -10,6 +10,7 @@ from app.core.config import get_settings
 settings = get_settings()
 security = HTTPBearer(auto_error=False)
 _jwks_cache: dict[str, dict] = {}
+_ASYMMETRIC_ALGORITHMS = ["RS256"]
 
 
 def auth_error(message: str, code: str) -> HTTPException:
@@ -39,24 +40,29 @@ async def get_jwk(kid: str) -> dict | None:
 
 async def decode_supabase_token(token: str) -> dict:
     header = jwt.get_unverified_header(token)
-    algorithm = header.get("alg", "HS256")
-
-    if algorithm == "HS256":
-        return jwt.decode(
-            token,
-            settings.supabase_jwt_secret,
-            algorithms=["HS256"],
-            options={"verify_aud": False},
-        )
+    if settings.supabase_jwt_secret:
+        try:
+            return jwt.decode(
+                token,
+                settings.supabase_jwt_secret,
+                algorithms=["HS256"],
+                options={"verify_aud": False},
+            )
+        except JWTError:
+            pass
 
     key = await get_jwk(header.get("kid", ""))
     if key is None:
         raise JWTError("No matching Supabase JWK found")
 
+    algorithm = header.get("alg")
+    if algorithm and algorithm not in _ASYMMETRIC_ALGORITHMS:
+        raise JWTError("Unsupported Supabase signing algorithm")
+
     return jwt.decode(
         token,
         key,
-        algorithms=[algorithm],
+        algorithms=_ASYMMETRIC_ALGORITHMS,
         options={"verify_aud": False},
     )
 
