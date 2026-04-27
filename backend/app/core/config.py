@@ -6,13 +6,17 @@ class Settings(BaseSettings):
     llm_provider: str = "sarvam"
     sarvam_api_key: str = ""
     sarvam_base_url: str = "https://api.sarvam.ai/v1"
-    sarvam_model: str = "sarvam-30b"
+    sarvam_model: str = "sarvam-105b"
     lm_studio_base_url: str = "http://host.docker.internal:1234/v1"
     lm_studio_model: str = "local-model"
 
     # n8n
+    n8n_encryption_key: str = ""
     n8n_url: str = "http://n8n:5678"
     n8n_api_key: str = ""
+    n8n_runners_auth_token: str = ""
+    google_sheet_id: str = ""
+    google_sheet_name: str = "Sheet1"
 
     # Supabase
     supabase_url: str = ""
@@ -24,10 +28,12 @@ class Settings(BaseSettings):
     secret_key: str = ""
     environment: str = "development"
     frontend_url: str = "http://localhost:3000"
+    next_public_api_url: str = "http://localhost:8000"
 
     class Config:
         env_file = ".env"
         case_sensitive = False
+        extra = "ignore"
 
 @lru_cache()
 def get_settings() -> Settings:

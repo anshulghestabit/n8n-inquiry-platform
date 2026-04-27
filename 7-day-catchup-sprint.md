@@ -119,8 +119,8 @@ Evidence to save:
 | 2 | Layer 4 backend core | [x] | 2026-04-24 | `/system/status` verified: no token -> 401 `INVALID_TOKEN`, invalid JWT -> 401 `INVALID_TOKEN`, expired JWT -> 401 `TOKEN_EXPIRED`, valid signed JWT -> 200 connection state payload. |
 | 3 | Layer 5 auth endpoints | [x] | 2026-04-24 | Auth endpoints verified: register -> 201, login -> 200 + `Set-Cookie`, `/auth/me` -> 200 with cookie, profile update -> 200, duplicate register -> 409 `EMAIL_EXISTS`, wrong password -> 401 `INVALID_CREDENTIALS`, logout clears cookie, post-logout `/auth/me` -> 401 `INVALID_TOKEN`. Evidence: `docs/day-3-auth-verification.md`. |
 | 4 | n8n reliability + test matrix | [ ] |  | Started 2026-04-24. Created n8n workflow `EFHQhYMNpoZWI4Cg` and saved template at `backend/templates/inquiry_workflow.json`; required 5 agent nodes, validation gates, Gmail send, and Sheets append are present. Live 10-case matrix is blocked until `GOOGLE_SHEET_ID` and a Google Sheets credential are configured. Evidence: `docs/test-matrix.md`. |
-| 5 | Layer 6 frontend shell | [ ] |  |  |
-| 6 | Layer 7/8 workflow + execution | [ ] |  |  |
+| 5 | Layer 6 frontend shell | [ ] |  | Started 2026-04-26. Implemented Next.js app structure, login/register pages, protected routes, dashboard shell, sidebar, status bar polling, profile update page, and Docker frontend service. Verified with `npm run lint`, `npm run build`, and `npm audit --audit-level=high`. Browser login flow still needs live backend/Supabase verification. |
+| 6 | Layer 7/8 workflow + execution | [ ] |  | Started 2026-04-26. Added Layer 7 workflow CRUD backend foundation (`/workflows`, `/workflows/{id}`, `/workflows/{id}/agents`, `/agents/{id}`), n8n template cloning with rollback on DB failure, default 5-agent rows, agent prompt sync to n8n nodes, and frontend workflow list/create/detail/agents/editor pages. Verified syntax/build with Python compile plus frontend lint/build. Live CRUD verification still needs running n8n + Supabase credentials. |
 | 7 | Layer 9/10 analytics + exports | [ ] |  |  |
 
 ## Exit Criteria (Sprint Complete)

@@ -26,6 +26,8 @@ n8n/.n8n/
 
 # Node
 node_modules/
+.next/
+out/
 
 # OS
 .DS_Store
@@ -39,3 +41,8 @@ graphify-out/
 
 client_secret_477425554928-56n82f8rvsdsn8tm04hugturvnbgjqe8.apps.googleusercontent.com.json
 .obsidian/client_secret*.json
+Full plan.md
+Plan.md
+AGENTS.md
+CLAUDE.md
+n8n-Multi-Agent-Customer-Inquiry-Automation-Platform-1776146892275.pdf
