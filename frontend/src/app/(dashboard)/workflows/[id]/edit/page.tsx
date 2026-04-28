@@ -14,6 +14,9 @@ export default function WorkflowEditPage() {
   const params = useParams<{ id: string }>()
   const [workflow, setWorkflow] = useState<Workflow | null>(null)
   const [error, setError] = useState('')
+  const n8nEditorUrl = workflow?.n8n_workflow_id
+    ? `http://localhost:5678/#/workflow/${workflow.n8n_workflow_id}`
+    : ''
 
   useEffect(() => {
     apiFetch<Workflow>(`/workflows/${params.id}`)
@@ -27,18 +30,25 @@ export default function WorkflowEditPage() {
         <div>
           <p className="eyebrow">n8n editor</p>
           <h1>{workflow?.name || 'Workflow editor'}</h1>
-          <p>Embedded editor for the cloned n8n workflow.</p>
+          <p>Open the cloned n8n workflow in the n8n editor.</p>
         </div>
       </header>
 
       {error ? <div className="error-box">{error}</div> : null}
       {!workflow?.n8n_workflow_id ? <section className="panel"><p className="muted">No n8n workflow id found yet.</p></section> : null}
       {workflow?.n8n_workflow_id ? (
-        <iframe
-          src={`http://localhost:5678/workflow/${workflow.n8n_workflow_id}`}
-          title="n8n Workflow Editor"
-          style={{ width: '100%', height: 'calc(100vh - 180px)', border: '1px solid var(--line)', borderRadius: 22 }}
-        />
+        <section className="panel">
+          <h2>Open in n8n</h2>
+          <p className="muted">
+            n8n blocks embedding in a cross-origin iframe on some local setups, so open the workflow directly in n8n.
+          </p>
+          <div className="row-actions" style={{ marginTop: '1rem' }}>
+            <a className="button" href={n8nEditorUrl} rel="noreferrer" target="_blank">
+              Open n8n workflow
+            </a>
+          </div>
+          <p className="muted" style={{ marginTop: '1rem' }}>{n8nEditorUrl}</p>
+        </section>
       ) : null}
     </>
   )

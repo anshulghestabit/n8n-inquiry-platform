@@ -56,7 +56,8 @@ export default function WorkflowsPage() {
 
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const formData = new FormData(event.currentTarget)
+    const form = event.currentTarget
+    const formData = new FormData(form)
     setCreating(true)
     setError('')
 
@@ -66,10 +67,10 @@ export default function WorkflowsPage() {
         body: JSON.stringify({
           name: String(formData.get('name') || ''),
           description: String(formData.get('description') || ''),
-          trigger_channel: String(formData.get('trigger_channel') || 'gmail'),
+          trigger_channel: String(formData.get('trigger_channel') || 'both'),
         }),
       })
-      event.currentTarget.reset()
+      form.reset()
       await loadWorkflows()
     } catch (err) {
       setError(err instanceof ApiRequestError ? err.message : 'Unable to create workflow')
@@ -98,14 +99,14 @@ export default function WorkflowsPage() {
           </div>
           <div className="field">
             <label htmlFor="description">Description</label>
-            <input id="description" name="description" placeholder="Handles Gmail inquiries with five agents" />
+            <input id="description" name="description" placeholder="Handles Gmail and Telegram inquiries with five agents" />
           </div>
           <div className="field">
             <label htmlFor="trigger_channel">Trigger channel</label>
-            <select id="trigger_channel" name="trigger_channel" defaultValue="gmail">
+            <select id="trigger_channel" name="trigger_channel" defaultValue="both">
+              <option value="both">Both</option>
               <option value="gmail">Gmail</option>
               <option value="telegram">Telegram</option>
-              <option value="both">Both</option>
             </select>
           </div>
           <button className="button" disabled={creating} type="submit">

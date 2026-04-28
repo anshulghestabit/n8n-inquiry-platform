@@ -1,3 +1,5 @@
+import logging
+
 from pydantic import BaseModel, EmailStr, Field
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 
@@ -7,6 +9,7 @@ from app.middleware.auth import get_current_user
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 AUTH_COOKIE = "auth-token"
+logger = logging.getLogger(__name__)
 
 
 class RegisterRequest(BaseModel):
@@ -43,6 +46,27 @@ def set_auth_cookie(response: Response, token: str) -> None:
     )
 
 
+def seed_profile_rows(db, user_id: str, email: str, full_name: str) -> None:
+    db.table("profiles").upsert(
+        {
+            "id": user_id,
+            "email": email,
+            "full_name": full_name,
+        },
+        on_conflict="id",
+    ).execute()
+
+    db.table("data_sources").upsert(
+        [
+            {"user_id": user_id, "source_type": "gmail", "is_connected": False},
+            {"user_id": user_id, "source_type": "telegram", "is_connected": False},
+            {"user_id": user_id, "source_type": "google_drive", "is_connected": False},
+            {"user_id": user_id, "source_type": "google_sheets", "is_connected": False},
+        ],
+        on_conflict="user_id,source_type",
+    ).execute()
+
+
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 async def register(data: RegisterRequest):
     sb = get_supabase_admin_client()
@@ -63,6 +87,7 @@ async def register(data: RegisterRequest):
                 "Email already exists",
                 "EMAIL_EXISTS",
             )
+        logger.exception("Supabase registration failed")
         raise api_error(
             status.HTTP_500_INTERNAL_SERVER_ERROR,
             "Registration failed",
@@ -74,6 +99,25 @@ async def register(data: RegisterRequest):
             status.HTTP_409_CONFLICT,
             "Email already exists",
             "EMAIL_EXISTS",
+        )
+
+    try:
+        seed_profile_rows(
+            sb,
+            str(result.user.id),
+            str(data.email),
+            data.full_name,
+        )
+    except Exception:
+        logger.exception("Failed to seed profile rows after Supabase registration")
+        try:
+            sb.auth.admin.delete_user(str(result.user.id))
+        except Exception:
+            logger.exception("Failed to rollback Supabase auth user after profile seed failure")
+        raise api_error(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "Profile setup failed",
+            "PROFILE_SETUP_FAILED",
         )
 
     return {"message": "User created"}

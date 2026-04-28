@@ -33,7 +33,7 @@ DEFAULT_AGENTS = [
     {
         "name": "Classifier Agent",
         "role": "classifier",
-        "system_prompt": "Classify the customer inquiry. Return only JSON with type, priority, and confidence.",
+        "system_prompt": "You are a sales-focused customer inquiry classifier for a demo workflow. Think internally if needed, but output ONLY compact raw JSON with no markdown and no explanation. Required keys: type, priority, confidence. Classify pricing, demo, procurement, enterprise, seats, onboarding, automation, implementation timeline, or purchase-intent messages as sales_inquiry. type must be one of sales_inquiry, support_ticket, complaint, general_question, order_request. priority must be low, medium, or high. confidence must be a number from 0 to 1.",
         "tools": [],
         "handoff_rules": "Pass valid classification JSON to the researcher.",
         "output_format": "json",
@@ -42,7 +42,7 @@ DEFAULT_AGENTS = [
     {
         "name": "Researcher Agent",
         "role": "researcher",
-        "system_prompt": "Find relevant knowledge base context for the inquiry. Return only JSON with relevant_info and source.",
+        "system_prompt": "You are a sales knowledge-base researcher. Think internally if needed, but output ONLY compact raw JSON with no markdown and no explanation. Required keys: relevant_info, source. Prefer information from the provided Google Drive KB content and return source as google_drive when KB content is present. If no specific information is available, use {\"relevant_info\":\"No specific information found.\",\"source\":\"none\"}.",
         "tools": ["google_drive"],
         "handoff_rules": "Pass research context to the qualifier.",
         "output_format": "json",
@@ -51,7 +51,7 @@ DEFAULT_AGENTS = [
     {
         "name": "Qualifier Agent",
         "role": "qualifier",
-        "system_prompt": "Score the lead or request from 1 to 10 and explain the score in one sentence. Return only JSON.",
+        "system_prompt": "You are a sales lead qualifier. Think internally if needed, but output ONLY compact raw JSON with no markdown and no explanation. Required keys: lead_score, reason. lead_score must be a number from 1 to 10. Score sales inquiries higher when they mention pricing, demo, procurement, team size, enterprise requirements, or implementation timeline. reason must be one sentence.",
         "tools": [],
         "handoff_rules": "Pass qualification to the responder.",
         "output_format": "json",
@@ -60,7 +60,7 @@ DEFAULT_AGENTS = [
     {
         "name": "Responder Agent",
         "role": "responder",
-        "system_prompt": "Draft a professional customer reply using the inquiry, classification, research, and qualification. Return only JSON.",
+        "system_prompt": "You are a sales response specialist. Think internally if needed, but output ONLY compact raw JSON with no markdown and no explanation. Required key: draft_reply. draft_reply must contain the complete professional reply text. For sales inquiries, reference the relevant plan, pricing range, setup timeline, and offer a demo. If information is missing, promise a follow-up within 24 business hours.",
         "tools": [],
         "handoff_rules": "Pass the draft reply to the executor.",
         "output_format": "json",
@@ -69,7 +69,7 @@ DEFAULT_AGENTS = [
     {
         "name": "Executor Agent",
         "role": "executor",
-        "system_prompt": "Confirm the reply is ready to send and log. Return only JSON with sent, channel, and logged.",
+        "system_prompt": "You are an execution coordinator. Think internally if needed, but output ONLY compact raw JSON with no markdown and no explanation. Required keys: sent, channel, logged. Confirm the final response is ready for the selected channel and logging step. Use sent as a boolean, channel as gmail or telegram based on the normalized inquiry channel, and logged as true when the execution should be recorded.",
         "tools": ["gmail", "google_sheets"],
         "handoff_rules": "Route the final reply to the configured channel and logging step.",
         "output_format": "json",
@@ -77,11 +77,21 @@ DEFAULT_AGENTS = [
     },
 ]
 
+DEFAULT_AGENTS_BY_ROLE = {agent["role"]: agent for agent in DEFAULT_AGENTS}
+
+LEGACY_SYSTEM_PROMPTS = {
+    "classifier": "Classify the customer inquiry. Return only JSON with type, priority, and confidence.",
+    "researcher": "Find relevant knowledge base context for the inquiry. Return only JSON with relevant_info and source.",
+    "qualifier": "Score the lead or request from 1 to 10 and explain the score in one sentence. Return only JSON.",
+    "responder": "Draft a professional customer reply using the inquiry, classification, research, and qualification. Return only JSON.",
+    "executor": "Confirm the reply is ready to send and log. Return only JSON with sent, channel, and logged.",
+}
+
 
 class WorkflowCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     description: str = ""
-    trigger_channel: TriggerChannel = "gmail"
+    trigger_channel: TriggerChannel = "both"
 
 
 class WorkflowUpdateRequest(BaseModel):
@@ -197,6 +207,24 @@ async def delete_n8n_workflow(n8n_workflow_id: str) -> None:
 
 def agent_rows(workflow_id: str) -> list[dict]:
     return [{**agent, "workflow_id": workflow_id} for agent in DEFAULT_AGENTS]
+
+
+def backfill_legacy_agent_prompts(db, agents: list[dict]) -> list[dict]:
+    updated_agents = []
+    for agent in agents:
+        role = agent.get("role")
+        default_agent = DEFAULT_AGENTS_BY_ROLE.get(role)
+        if default_agent and agent.get("system_prompt") == LEGACY_SYSTEM_PROMPTS.get(role):
+            update_data = {
+                "system_prompt": default_agent["system_prompt"],
+                "tools": default_agent["tools"],
+                "handoff_rules": default_agent["handoff_rules"],
+                "output_format": default_agent["output_format"],
+            }
+            db.table("agents").update(update_data).eq("id", agent["id"]).execute()
+            agent = {**agent, **update_data}
+        updated_agents.append(agent)
+    return updated_agents
 
 
 def replace_system_prompt(node: dict, system_prompt: str) -> bool:
@@ -371,7 +399,10 @@ async def list_agents(workflow_id: str, current_user: dict = Depends(get_current
         result = db.table("agents").select("*").eq("workflow_id", workflow_id).order("order_index").execute()
     except Exception:
         raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "Database query failed", "DB_ERROR")
-    return result.data or []
+    try:
+        return backfill_legacy_agent_prompts(db, result.data or [])
+    except Exception:
+        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "Database query failed", "DB_ERROR")
 
 
 @router.put("/agents/{agent_id}")

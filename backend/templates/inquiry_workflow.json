@@ -29,6 +29,29 @@
       }
     },
     {
+      "id": "telegram-trigger",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        192
+      ],
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "webhookId": "telegram-inquiry-handler",
+      "credentials": {
+        "telegramApi": {
+          "id": "syoZzfUF6V2rYWid",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
       "id": "normalize-input",
       "name": "Normalize_Input",
       "type": "n8n-nodes-base.code",
@@ -38,7 +61,7 @@
         0
       ],
       "parameters": {
-        "jsCode": "const item = $input.first().json;\nconst body = item.text || item.textPlain || item.snippet || item.body || '';\nconst sender = item.from || item.From || item.sender || '';\nreturn [{ json: { original_inquiry: body, sender_email: sender, subject: item.subject || item.Subject || 'Customer inquiry', message_id: item.id || item.messageId || item.message_id || '', source_channel: 'gmail', execution_meta: { started_at: new Date().toISOString(), agent_durations: {} } } }];"
+        "jsCode": "const item = $input.first().json || {};\nconst telegramMessage = item.message || {};\nconst telegramChat = telegramMessage.chat || item.chat || {};\nconst isTelegram = item.source_channel === 'telegram' || Boolean(item.update_id) || Boolean(telegramMessage.text) || Boolean(telegramChat.id);\nconst body = item.inquiry_text || item.original_inquiry || telegramMessage.text || item.text || item.textPlain || item.snippet || item.body || '';\nconst senderEmail = item.sender_email || item.from || item.From || item.sender || '';\nconst senderId = item.sender_id || (isTelegram ? String(telegramMessage.from?.id || telegramChat.id || '') : senderEmail);\nconst telegramChatId = item.telegram_chat_id || telegramChat.id || (isTelegram ? senderId : '');\nconst sourceChannel = item.source_channel || (isTelegram ? 'telegram' : 'gmail');\nreturn [{ json: { original_inquiry: body, sender_email: senderEmail, sender_id: senderId, telegram_chat_id: telegramChatId, subject: item.subject || item.Subject || 'Customer inquiry', message_id: telegramMessage.message_id || item.id || item.messageId || item.message_id || '', source_channel: sourceChannel, execution_meta: { started_at: new Date().toISOString(), agent_durations: {} } } }];"
       }
     },
     {
@@ -118,16 +141,41 @@
       }
     },
     {
-      "id": "mock-sales-kb",
-      "name": "Mock_Sales_KB",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
+      "id": "drive-fetch-kb",
+      "name": "Google_Drive_Fetch_KB",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
       "position": [
         1200,
         0
       ],
       "parameters": {
-        "jsCode": "const base = $input.first().json;\nconst mock_sales_data = {\n  company_name: 'HestaBot Automation Platform',\n  product: 'Multi-agent customer inquiry automation for Gmail, Google Sheets, Google Drive knowledge retrieval, and workflow monitoring.',\n  plans: [\n    { plan: 'Starter', price: 'INR 24,000/month', seats: 'Up to 10 users', features: ['Gmail inquiry automation', 'basic dashboard', 'email support'] },\n    { plan: 'Growth', price: 'INR 75,000/month', seats: 'Up to 50 users', features: ['5-agent inquiry workflow', 'Google Sheets logging', 'workflow console', 'priority support'] },\n    { plan: 'Enterprise', price: 'Custom, starting at INR 1,80,000/month', seats: '50+ users', features: ['dedicated success manager', 'SLA', 'custom integrations', 'security review'] }\n  ],\n  demo_booking: 'A 30-minute discovery/demo call can be scheduled within 2 business days.',\n  onboarding: 'Typical setup is 5-7 business days for Gmail and Sheets; 10-14 business days when Drive KB and custom routing are included.',\n  discounts: 'Annual contracts receive a 15% discount.',\n  qualification_notes: 'High-intent signals include pricing, demo requests, procurement involvement, team size, and implementation timeline.'\n};\nconst sales_kb_text = [\n  'Company: ' + mock_sales_data.company_name,\n  'Product: ' + mock_sales_data.product,\n  'Plans:',\n  ...mock_sales_data.plans.map((plan) => plan.plan + ': ' + plan.price + '; ' + plan.seats + '; features: ' + plan.features.join(', ')),\n  'Demo booking: ' + mock_sales_data.demo_booking,\n  'Onboarding: ' + mock_sales_data.onboarding,\n  'Discounts: ' + mock_sales_data.discounts,\n  'Qualification notes: ' + mock_sales_data.qualification_notes\n].join('\\n');\nreturn [{ json: { ...base, mock_sales_data, sales_kb_text } }];"
+        "operation": "copy",
+        "fileId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ (() => { const intent = String($('Validate_Classifier').item.json.classification?.type || ''); const byIntent = { sales_inquiry: $env.GOOGLE_DRIVE_KB_SALES_FILE_ID || '1H81rJBmEoQ9oTd6lIzUIWxIAAW_JZlEb2HmpVL0nEwU', support_ticket: $env.GOOGLE_DRIVE_KB_SUPPORT_FILE_ID || '1yEjWTDOWy8tVk7XENVtdmkxlFakMQrljFzEn06iyucE', complaint: $env.GOOGLE_DRIVE_KB_COMPLAINT_FILE_ID || '1CzRauQmDPKa8OvgLLMPOxHveXbrG-277Uv-IMWpF4C0', general_question: $env.GOOGLE_DRIVE_KB_GENERAL_FILE_ID || '1gGHxi93GE5OrV3m6twWy86pzMunq2lMgvTomNMy5q-o', order_request: $env.GOOGLE_DRIVE_KB_ORDER_FILE_ID || '1kII7FmOR54UZ5bUNI_MXIDmcUfn_AUHTLptvimbagzo' }; return byIntent[intent] || $env.GOOGLE_DRIVE_KB_DEFAULT_FILE_ID || '1GrWRxL57O7yGiDK6YSL-v40kkFw1dj4JAaY8Ym3tQs4' || $env.GOOGLE_DRIVE_KB_FILE_ID || ''; })() }}"
+        },
+        "options": {}
+      },
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "gAS7ykglNjDBZ1NX",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "id": "drive-kb-content-prep",
+      "name": "Drive_KB_Content_Prep",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1328,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const base = $('Validate_Classifier').first().json;\nconst driveResult = $input.first().json || {};\nconst intent = String(base.classification?.type || '');\nconst selectedId = (() => {\n  const byIntent = {\n    sales_inquiry: $env.GOOGLE_DRIVE_KB_SALES_FILE_ID || '1H81rJBmEoQ9oTd6lIzUIWxIAAW_JZlEb2HmpVL0nEwU',\n    support_ticket: $env.GOOGLE_DRIVE_KB_SUPPORT_FILE_ID || '1yEjWTDOWy8tVk7XENVtdmkxlFakMQrljFzEn06iyucE',\n    complaint: $env.GOOGLE_DRIVE_KB_COMPLAINT_FILE_ID || '1CzRauQmDPKa8OvgLLMPOxHveXbrG-277Uv-IMWpF4C0',\n    general_question: $env.GOOGLE_DRIVE_KB_GENERAL_FILE_ID || '1gGHxi93GE5OrV3m6twWy86pzMunq2lMgvTomNMy5q-o',\n    order_request: $env.GOOGLE_DRIVE_KB_ORDER_FILE_ID || '1kII7FmOR54UZ5bUNI_MXIDmcUfn_AUHTLptvimbagzo',\n  };\n  return byIntent[intent] || $env.GOOGLE_DRIVE_KB_DEFAULT_FILE_ID || '1GrWRxL57O7yGiDK6YSL-v40kkFw1dj4JAaY8Ym3tQs4' || $env.GOOGLE_DRIVE_KB_FILE_ID || '';\n})();\nconst content = driveResult.data || driveResult.content || driveResult.text || '';\nconst relevantText = String(content || '').trim();\nconst fallback = 'No specific information found.';\nconst source = relevantText ? 'google_drive' : 'none';\nconst sales_kb_text = relevantText || fallback;\nconst documentUsed = driveResult.name || driveResult.fileName || driveResult.title || selectedId || 'none';\nreturn [{ json: { ...base, sales_kb_text, kb_document_used: documentUsed, kb_fallback: !relevantText, kb_source: source } }];"
       }
     },
     {
@@ -157,7 +205,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ { \"model\": $env.SARVAM_MODEL || \"sarvam-105b\", \"messages\": [{ \"role\": \"system\", \"content\": \"You are a sales knowledge-base researcher. Think internally if needed, but output ONLY compact raw JSON with no markdown and no explanation. Required keys: relevant_info, source. Use the provided mock sales knowledge base for sales inquiries. Return source as mock_sales_kb when using that data. If no specific information is available, use {\\\"relevant_info\\\":\\\"No specific information found.\\\",\\\"source\\\":\\\"none\\\"}.\" }, { \"role\": \"user\", \"content\": `Inquiry: ${$('Mock_Sales_KB').item.json.original_inquiry}\\nClassification: ${JSON.stringify($('Mock_Sales_KB').item.json.classification)}\\nMock sales knowledge base:\\n${$('Mock_Sales_KB').item.json.sales_kb_text}` }], \"max_tokens\": 1500, \"temperature\": 0 } }}"
+        "jsonBody": "={{ { \"model\": $env.SARVAM_MODEL || \"sarvam-105b\", \"messages\": [{ \"role\": \"system\", \"content\": \"You are a sales knowledge-base researcher. Think internally if needed, but output ONLY compact raw JSON with no markdown and no explanation. Required keys: relevant_info, source. Prefer information from the provided Google Drive KB content and return source as google_drive when KB content is present. If no specific information is available, use {\\\"relevant_info\\\":\\\"No specific information found.\\\",\\\"source\\\":\\\"none\\\"}.\" }, { \"role\": \"user\", \"content\": `Inquiry: ${$('Drive_KB_Content_Prep').item.json.original_inquiry}\\nClassification: ${JSON.stringify($('Drive_KB_Content_Prep').item.json.classification)}\\nGoogle Drive KB content:\\n${$('Drive_KB_Content_Prep').item.json.sales_kb_text}` }], \"max_tokens\": 1500, \"temperature\": 0 } }}"
       }
     },
     {
@@ -170,7 +218,7 @@
         0
       ],
       "parameters": {
-        "jsCode": "const response = $input.first().json;\nconst message = response.choices?.[0]?.message || {};\nconst rawCandidate = message.content || response.output || response.message?.content || message.reasoning_content || '';\nfunction stripThink(text) {\n  return String(text || '')\n    .replace(/<think[\\s\\S]*?<\\/think>/gi, '')\n    .replace(/<thinking[\\s\\S]*?<\\/thinking>/gi, '')\n    .trim();\n}\nconst raw = stripThink(rawCandidate);\nfunction extractJSON(text) {\n  const value = String(text || '').trim();\n  try { return JSON.parse(value); } catch {}\n  const stripped = value.replace(/```(?:json)?\\s*|\\s*```/g, '').trim();\n  try { return JSON.parse(stripped); } catch {}\n  const fenced = value.match(/\\{[\\s\\S]*\\}/);\n  if (fenced) { try { return JSON.parse(fenced[0]); } catch {} }\n  return null;\n}\nconst parsed = extractJSON(raw);\nconst required = [\"relevant_info\",\"source\"];\nconst missing = required.filter((key) => parsed?.[key] === undefined || parsed?.[key] === null || parsed?.[key] === '');\nconst ok = !!parsed && missing.length === 0;\nconst base = $('Mock_Sales_KB').first().json;\nreturn [{ json: { ...base, research: parsed || {}, _ok: ok, _agent: 'researcher', _required: required, _missing: missing, _raw: ok ? undefined : String(raw || JSON.stringify(response)).substring(0, 1000) } }];"
+        "jsCode": "const response = $input.first().json;\nconst message = response.choices?.[0]?.message || {};\nconst rawCandidate = message.content || response.output || response.message?.content || message.reasoning_content || '';\nfunction stripThink(text) {\n  return String(text || '')\n    .replace(/<think[\\s\\S]*?<\\/think>/gi, '')\n    .replace(/<thinking[\\s\\S]*?<\\/thinking>/gi, '')\n    .trim();\n}\nconst raw = stripThink(rawCandidate);\nfunction extractJSON(text) {\n  const value = String(text || '').trim();\n  try { return JSON.parse(value); } catch {}\n  const stripped = value.replace(/```(?:json)?\\s*|\\s*```/g, '').trim();\n  try { return JSON.parse(stripped); } catch {}\n  const fenced = value.match(/\\{[\\s\\S]*\\}/);\n  if (fenced) { try { return JSON.parse(fenced[0]); } catch {} }\n  return null;\n}\nconst parsed = extractJSON(raw);\nconst required = [\"relevant_info\",\"source\"];\nconst missing = required.filter((key) => parsed?.[key] === undefined || parsed?.[key] === null || parsed?.[key] === '');\nconst ok = !!parsed && missing.length === 0;\nconst base = $('Drive_KB_Content_Prep').first().json;\nconst research = parsed || { relevant_info: 'No specific information found.', source: base.kb_source || 'none' };\nif (!research.source && base.kb_source) {\n  research.source = base.kb_source;\n}\nreturn [{ json: { ...base, research, _ok: ok, _agent: 'researcher', _required: required, _missing: missing, _raw: ok ? undefined : String(raw || JSON.stringify(response)).substring(0, 1000) } }];"
       }
     },
     {
@@ -233,7 +281,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ { \"model\": $env.SARVAM_MODEL || \"sarvam-105b\", \"messages\": [{ \"role\": \"system\", \"content\": \"You are a sales lead qualifier. Think internally if needed, but output ONLY compact raw JSON with no markdown and no explanation. Required keys: lead_score, reason. lead_score must be a number from 1 to 10. Score sales inquiries higher when they mention pricing, demo, procurement, team size, enterprise requirements, or implementation timeline. reason must be one sentence.\" }, { \"role\": \"user\", \"content\": `Inquiry: ${$json.original_inquiry}\\nClassification: ${JSON.stringify($json.classification)}\\nResearch: ${JSON.stringify($json.research)}\\nMock sales data: ${JSON.stringify($json.mock_sales_data)}` }], \"max_tokens\": 1500, \"temperature\": 0 } }}",
+        "jsonBody": "={{ { \"model\": $env.SARVAM_MODEL || \"sarvam-105b\", \"messages\": [{ \"role\": \"system\", \"content\": \"You are a sales lead qualifier. Think internally if needed, but output ONLY compact raw JSON with no markdown and no explanation. Required keys: lead_score, reason. lead_score must be a number from 1 to 10. Score sales inquiries higher when they mention pricing, demo, procurement, team size, enterprise requirements, or implementation timeline. reason must be one sentence.\" }, { \"role\": \"user\", \"content\": `Inquiry: ${$json.original_inquiry}\\nClassification: ${JSON.stringify($json.classification)}\\nResearch: ${JSON.stringify($json.research)}` }], \"max_tokens\": 1500, \"temperature\": 0 } }}",
         "options": {
           "timeout": 30000
         }
@@ -358,7 +406,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ { \"model\": $env.SARVAM_MODEL || \"sarvam-105b\", \"messages\": [{ \"role\": \"system\", \"content\": \"You are a sales response specialist. Think internally if needed, but output ONLY compact raw JSON with no markdown and no explanation. Required key: draft_reply. draft_reply must contain the complete professional reply text. For sales inquiries, reference the relevant plan, pricing range, setup timeline, and offer a demo. If information is missing, promise a follow-up within 24 business hours.\" }, { \"role\": \"user\", \"content\": `Inquiry: ${$json.original_inquiry}\\nClassification: ${JSON.stringify($json.classification)}\\nResearch: ${JSON.stringify($json.research)}\\nQualification: ${JSON.stringify($json.qualification)}\\nMock sales data: ${JSON.stringify($json.mock_sales_data)}` }], \"max_tokens\": 1500, \"temperature\": 0 } }}"
+        "jsonBody": "={{ { \"model\": $env.SARVAM_MODEL || \"sarvam-105b\", \"messages\": [{ \"role\": \"system\", \"content\": \"You are a sales response specialist. Think internally if needed, but output ONLY compact raw JSON with no markdown and no explanation. Required key: draft_reply. draft_reply must contain the complete professional reply text. For sales inquiries, reference the relevant plan, pricing range, setup timeline, and offer a demo. If information is missing, promise a follow-up within 24 business hours.\" }, { \"role\": \"user\", \"content\": `Inquiry: ${$json.original_inquiry}\\nClassification: ${JSON.stringify($json.classification)}\\nResearch: ${JSON.stringify($json.research)}\\nQualification: ${JSON.stringify($json.qualification)}` }], \"max_tokens\": 1500, \"temperature\": 0 } }}"
       }
     },
     {
@@ -484,6 +532,58 @@
       }
     },
     {
+      "id": "route-by-channel",
+      "name": "Route_By_Channel",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        4320,
+        -208
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "route-telegram",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "leftValue": "={{ $json.source_channel }}",
+              "rightValue": "telegram"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "telegram-send",
+      "name": "Telegram_Send_Message",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4560,
+        -368
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://api.telegram.org/bot' + ($env.TELEGRAM_BOT_TOKEN || '') + '/sendMessage' }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"chat_id\": $json.telegram_chat_id || $json.sender_id, \"text\": $json.draft_reply } }}",
+        "options": {
+          "timeout": 30000
+        }
+      }
+    },
+    {
       "id": "gmail-send",
       "name": "Gmail_Send_Reply",
       "type": "n8n-nodes-base.gmail",
@@ -606,7 +706,7 @@
         "documentId": {
           "__rl": true,
           "mode": "id",
-          "value": "={{ (() => { const sheet = $env.GOOGLE_SHEET_ID || 'TODO_GOOGLE_SHEET_ID'; const match = sheet.match(/\\/d\\/([^/]+)/); return match ? match[1] : sheet.split('?')[0].split('#')[0]; })() }}"
+          "value": "={{ (() => { const sheet = $env.GOOGLE_SHEET_ID || '1QOuxtk3kwQz6jCYj5zghQHKSex3eDa-g_Ldph8Y-t4c'; const match = sheet.match(/\\/d\\/([^/]+)/); return match ? match[1] : sheet.split('?')[0].split('#')[0]; })() }}"
         },
         "sheetName": {
           "__rl": true,
@@ -724,6 +824,12 @@
           "convertFieldsToString": false
         },
         "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "FNSGn9Zkno2WMY0v",
+          "name": "Google Sheets account"
+        }
       }
     },
     {
@@ -742,6 +848,17 @@
   ],
   "connections": {
     "Gmail Trigger": {
+      "main": [
+        [
+          {
+            "node": "Normalize_Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Trigger": {
       "main": [
         [
           {
@@ -789,7 +906,7 @@
       "main": [
         [
           {
-            "node": "Mock_Sales_KB",
+            "node": "Google_Drive_Fetch_KB",
             "type": "main",
             "index": 0
           }
@@ -797,6 +914,28 @@
         [
           {
             "node": "Validation_Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google_Drive_Fetch_KB": {
+      "main": [
+        [
+          {
+            "node": "Drive_KB_Content_Prep",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Drive_KB_Content_Prep": {
+      "main": [
+        [
+          {
+            "node": "Researcher_Agent",
             "type": "main",
             "index": 0
           }
@@ -978,7 +1117,7 @@
       "main": [
         [
           {
-            "node": "Send_Mode",
+            "node": "Route_By_Channel",
             "type": "main",
             "index": 0
           }
@@ -986,6 +1125,35 @@
         [
           {
             "node": "Validation_Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route_By_Channel": {
+      "main": [
+        [
+          {
+            "node": "Telegram_Send_Message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send_Mode",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram_Send_Message": {
+      "main": [
+        [
+          {
+            "node": "Mark_Auto_Sent",
             "type": "main",
             "index": 0
           }
@@ -1048,17 +1216,6 @@
         [
           {
             "node": "Google_Sheets_Append_Row",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Mock_Sales_KB": {
-      "main": [
-        [
-          {
-            "node": "Researcher_Agent",
             "type": "main",
             "index": 0
           }

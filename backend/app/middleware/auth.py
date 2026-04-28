@@ -5,6 +5,7 @@ from jose import JWTError, jwt
 from jose.exceptions import ExpiredSignatureError
 
 from app.core.config import get_settings
+from app.db.client import get_supabase_client
 
 
 settings = get_settings()
@@ -67,6 +68,24 @@ async def decode_supabase_token(token: str) -> dict:
     )
 
 
+def validate_token_with_supabase(token: str) -> dict:
+    try:
+        response = get_supabase_client().auth.get_user(token)
+    except Exception as exc:
+        if "expired" in str(exc).lower():
+            raise ExpiredSignatureError("Token expired") from exc
+        raise JWTError("Supabase token validation failed") from exc
+
+    user = getattr(response, "user", None)
+    if user is None:
+        raise JWTError("Supabase token validation returned no user")
+
+    return {
+        "sub": str(user.id),
+        "email": user.email,
+    }
+
+
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(security),
     auth_token: str | None = Cookie(default=None, alias="auth-token"),
@@ -80,7 +99,12 @@ async def get_current_user(
     except ExpiredSignatureError:
         raise auth_error("Token expired", "TOKEN_EXPIRED")
     except JWTError:
-        raise auth_error("Invalid token", "INVALID_TOKEN")
+        try:
+            payload = validate_token_with_supabase(token)
+        except ExpiredSignatureError:
+            raise auth_error("Token expired", "TOKEN_EXPIRED")
+        except JWTError:
+            raise auth_error("Invalid token", "INVALID_TOKEN")
 
     user_id = payload.get("sub")
     email = payload.get("email")
