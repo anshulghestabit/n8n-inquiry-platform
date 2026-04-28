@@ -60,6 +60,140 @@ def upsert_data_source(db, user_id: str, source_type: SourceType, is_connected: 
     return result.data[0]
 
 
+async def n8n_request(method: str, path: str) -> dict | list:
+    if not settings.n8n_api_key:
+        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "n8n API key is not configured", "N8N_UNAVAILABLE")
+
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.request(
+                method,
+                f"{settings.n8n_url}{path}",
+                headers={"X-N8N-API-KEY": settings.n8n_api_key},
+                timeout=10.0,
+            )
+            response.raise_for_status()
+            return response.json()
+    except httpx.HTTPStatusError as exc:
+        raise api_error(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            f"n8n API returned HTTP {exc.response.status_code}",
+            "N8N_UNAVAILABLE",
+        )
+    except httpx.RequestError:
+        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "n8n API unavailable", "N8N_UNAVAILABLE")
+
+
+def normalize_rows(payload: dict | list) -> list[dict]:
+    if isinstance(payload, list):
+        return [row for row in payload if isinstance(row, dict)]
+    data = payload.get("data") if isinstance(payload, dict) else None
+    if isinstance(data, list):
+        return [row for row in data if isinstance(row, dict)]
+    if isinstance(payload, dict):
+        return [payload]
+    return []
+
+
+def credential_refs_from_workflows(workflows: list[dict]) -> dict[str, list[dict]]:
+    refs: dict[str, list[dict]] = {source_type: [] for source_type in SOURCE_TYPES}
+    credential_map = {
+        "gmailOAuth2": "gmail",
+        "telegramApi": "telegram",
+        "googleDriveOAuth2Api": "google_drive",
+        "googleSheetsOAuth2Api": "google_sheets",
+    }
+
+    for workflow in workflows:
+        for node in workflow.get("nodes") or []:
+            credentials = node.get("credentials") or {}
+            if not isinstance(credentials, dict):
+                continue
+            for credential_type, source_type in credential_map.items():
+                credential = credentials.get(credential_type)
+                if isinstance(credential, dict) and credential.get("id"):
+                    refs[source_type].append(
+                        {
+                            "id": str(credential["id"]),
+                            "name": credential.get("name"),
+                            "node": node.get("name"),
+                            "workflow": workflow.get("name"),
+                        }
+                    )
+    return refs
+
+
+async def credential_exists(credential_id: str) -> bool:
+    try:
+        await n8n_request("GET", f"/api/v1/credentials/{credential_id}")
+        return True
+    except HTTPException as exc:
+        if exc.status_code == status.HTTP_503_SERVICE_UNAVAILABLE:
+            return False
+        raise
+
+
+async def verify_telegram_bot() -> dict:
+    if not settings.telegram_bot_token:
+        raise api_error(status.HTTP_400_BAD_REQUEST, "TELEGRAM_BOT_TOKEN is not configured", "INTEGRATION_VERIFY_FAILED")
+
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"https://api.telegram.org/bot{settings.telegram_bot_token}/getMe",
+                timeout=10.0,
+            )
+            response.raise_for_status()
+            payload = response.json()
+    except (httpx.HTTPStatusError, httpx.RequestError):
+        raise api_error(status.HTTP_400_BAD_REQUEST, "Telegram bot token verification failed", "INTEGRATION_VERIFY_FAILED")
+
+    if not payload.get("ok"):
+        raise api_error(status.HTTP_400_BAD_REQUEST, "Telegram bot token verification failed", "INTEGRATION_VERIFY_FAILED")
+
+    return {"bot": payload.get("result", {}).get("username")}
+
+
+async def verify_integration_connection(source_type: SourceType) -> dict:
+    workflows = normalize_rows(await n8n_request("GET", "/api/v1/workflows"))
+    refs = credential_refs_from_workflows(workflows).get(source_type, [])
+    if not refs:
+        detailed_workflows = []
+        for workflow in workflows:
+            workflow_id = workflow.get("id")
+            if workflow_id:
+                detailed = await n8n_request("GET", f"/api/v1/workflows/{workflow_id}")
+                if isinstance(detailed, dict):
+                    detailed_workflows.append(detailed)
+        refs = credential_refs_from_workflows(detailed_workflows).get(source_type, [])
+    if not refs:
+        raise api_error(
+            status.HTTP_400_BAD_REQUEST,
+            f"No {source_type} credential is attached to any n8n workflow node",
+            "INTEGRATION_VERIFY_FAILED",
+        )
+
+    verified_refs = []
+    for ref in refs:
+        if await credential_exists(ref["id"]):
+            verified_refs.append(ref)
+
+    if not verified_refs:
+        raise api_error(
+            status.HTTP_400_BAD_REQUEST,
+            f"{source_type} credentials are referenced by workflows but not readable from n8n",
+            "INTEGRATION_VERIFY_FAILED",
+        )
+
+    extra: dict = {}
+    if source_type == "telegram":
+        extra = await verify_telegram_bot()
+    if source_type == "google_sheets" and not settings.google_sheet_id:
+        raise api_error(status.HTTP_400_BAD_REQUEST, "GOOGLE_SHEET_ID is not configured", "INTEGRATION_VERIFY_FAILED")
+
+    return {"credential_refs": verified_refs, **extra}
+
+
 @router.get("/status")
 async def system_status(current_user: dict = Depends(get_current_user)):
     connection_status = {
@@ -114,13 +248,15 @@ async def connect_integration(
     current_user: dict = Depends(get_current_user),
 ):
     db = get_supabase_admin_client()
+    verification = await verify_integration_connection(source_type)
     verified_at = datetime.now(UTC).isoformat()
     row = upsert_data_source(db, current_user["id"], source_type, True, verified_at)
     return {
         "source_type": row["source_type"],
         "is_connected": bool(row["is_connected"]),
         "last_verified_at": row.get("last_verified_at"),
-        "message": "Integration connected",
+        "verification": verification,
+        "message": "Integration connected and verified",
     }
 
 
@@ -136,12 +272,14 @@ async def verify_integration(
     if not source or not source.get("is_connected"):
         raise api_error(status.HTTP_400_BAD_REQUEST, "Integration is not connected", "INTEGRATION_NOT_CONNECTED")
 
+    verification = await verify_integration_connection(source_type)
     verified_at = datetime.now(UTC).isoformat()
     row = upsert_data_source(db, current_user["id"], source_type, True, verified_at)
     return {
         "source_type": row["source_type"],
         "is_connected": bool(row["is_connected"]),
         "last_verified_at": row.get("last_verified_at"),
+        "verification": verification,
         "message": "Integration verified",
     }
 

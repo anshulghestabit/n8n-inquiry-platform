@@ -49,6 +49,14 @@ NODE_TO_AGENT = {
     "Executor_Agent": "executor",
 }
 
+AGENT_OUTPUT_NODES = {
+    "Classifier_JSON": "classifier",
+    "Researcher_JSON": "researcher",
+    "Qualifier_JSON": "qualifier",
+    "Responder_JSON": "responder",
+    "Executor_JSON": "executor",
+}
+
 
 class TriggerExecutionRequest(BaseModel):
     inquiry_text: str = Field(min_length=1, max_length=6000)
@@ -180,12 +188,23 @@ async def trigger_n8n_execution(workflow: dict, execution_id: str, body: Trigger
         },
     }
     run_paths = [f"/rest/workflows/{n8n_workflow_id}/run", f"/api/v1/workflows/{n8n_workflow_id}/run"]
+    last_error: HTTPException | None = None
     for path in run_paths:
-        response = await n8n_request("POST", path, run_payload)
+        try:
+            response = await n8n_request("POST", path, run_payload)
+        except HTTPException as exc:
+            last_error = exc
+            detail = exc.detail if isinstance(exc.detail, dict) else {}
+            message = str(detail.get("error") or exc.detail)
+            if "HTTP 404" in message or "HTTP 405" in message:
+                continue
+            raise
         parsed = _extract_n8n_execution_id(response)
         if parsed:
             return parsed
 
+    if last_error:
+        raise last_error
     raise api_error(
         status.HTTP_503_SERVICE_UNAVAILABLE,
         "n8n run request did not return an execution id",
@@ -243,34 +262,107 @@ def _derive_quality_metrics(agent_logs: list[dict], inquiry_text: str | None, fi
     }
 
 
+def _first_item_json(entry: dict) -> dict:
+    main_data = ((entry.get("data") or {}).get("main") or [])
+    if not main_data or not isinstance(main_data[0], list) or not main_data[0]:
+        return {}
+    item = main_data[0][0]
+    if not isinstance(item, dict):
+        return {}
+    payload = item.get("json")
+    return payload if isinstance(payload, dict) else {}
+
+
+def _agent_io_from_payload(role: str, payload: dict) -> tuple[dict, dict]:
+    base_input = {
+        "inquiry": payload.get("original_inquiry"),
+        "source_channel": payload.get("source_channel"),
+        "sender_id": payload.get("sender_id"),
+    }
+    if role == "classifier":
+        return base_input, {"classification": payload.get("classification")}
+    if role == "researcher":
+        return {**base_input, "classification": payload.get("classification"), "kb_document_used": payload.get("kb_document_used")}, {
+            "research": payload.get("research"),
+            "kb_source": payload.get("kb_source"),
+            "kb_fallback": payload.get("kb_fallback"),
+        }
+    if role == "qualifier":
+        return {**base_input, "classification": payload.get("classification"), "research": payload.get("research")}, {
+            "qualification": payload.get("qualification")
+        }
+    if role == "responder":
+        return {**base_input, "classification": payload.get("classification"), "qualification": payload.get("qualification")}, {
+            "draft_reply": payload.get("draft_reply")
+        }
+    return {**base_input, "draft_reply": payload.get("draft_reply")}, {
+        "execution": payload.get("execution"),
+        "delivery_mode": payload.get("delivery_mode"),
+        "reply_sent": payload.get("reply_sent"),
+        "logged": payload.get("execution", {}).get("logged") if isinstance(payload.get("execution"), dict) else None,
+    }
+
+
 def _extract_logs_from_n8n(detail: dict) -> list[dict]:
     run_data = (((detail.get("data") or {}).get("resultData") or {}).get("runData") or {})
-    output: list[dict] = []
+    by_role: dict[str, dict] = {}
 
     for node_name, entries in run_data.items():
-        role = NODE_TO_AGENT.get(node_name)
-        if not role:
-            continue
         if not isinstance(entries, list):
             continue
         for entry in entries:
+            if not isinstance(entry, dict):
+                continue
             duration_ms = int(entry.get("executionTime") or 0)
             status_value = "failed" if entry.get("error") else "success"
-            output.append(
-                {
-                    "agent_role": role,
-                    "input": None,
-                    "output": {
-                        "node": node_name,
-                        "item_count": len(((entry.get("data") or {}).get("main") or [[]])[0] or []),
+            role = NODE_TO_AGENT.get(node_name)
+            if role:
+                current = by_role.setdefault(
+                    role,
+                    {
+                        "agent_role": role,
+                        "input": {},
+                        "output": {},
+                        "duration_ms": 0,
+                        "status": "success",
+                        "error_message": None,
                     },
-                    "duration_ms": max(0, duration_ms),
-                    "status": status_value,
-                    "error_message": str(entry.get("error")) if entry.get("error") else None,
-                }
-            )
+                )
+                current["duration_ms"] = max(int(current.get("duration_ms") or 0), max(0, duration_ms))
+                if status_value == "failed":
+                    current["status"] = "failed"
+                    current["error_message"] = str(entry.get("error"))
 
-    return sorted(output, key=lambda row: ROLE_ORDER.get(row.get("agent_role", ""), 99))
+            output_role = AGENT_OUTPUT_NODES.get(node_name)
+            if output_role:
+                payload = _first_item_json(entry)
+                agent_input, agent_output = _agent_io_from_payload(output_role, payload)
+                missing = payload.get("_missing") if isinstance(payload.get("_missing"), list) else []
+                current = by_role.setdefault(
+                    output_role,
+                    {
+                        "agent_role": output_role,
+                        "input": {},
+                        "output": {},
+                        "duration_ms": 0,
+                        "status": "success",
+                        "error_message": None,
+                    },
+                )
+                current["input"] = {key: value for key, value in agent_input.items() if value is not None}
+                current["output"] = {
+                    key: value for key, value in agent_output.items() if value is not None
+                } | {
+                    "decision": "accepted" if payload.get("_ok") is True else "rejected",
+                    "required_keys": payload.get("_required") or [],
+                    "missing_keys": missing,
+                    "node": node_name,
+                }
+                if payload.get("_ok") is False:
+                    current["status"] = "failed"
+                    current["error_message"] = f"Missing required keys: {', '.join(missing)}" if missing else "Agent validation failed"
+
+    return sorted(by_role.values(), key=lambda row: ROLE_ORDER.get(row.get("agent_role", ""), 99))
 
 
 async def sync_execution_from_n8n(db, execution: dict) -> dict:
@@ -669,7 +761,8 @@ async def complete_execution(
 
     existing_detail = execution.get("scorecard_detail") or {}
     inquiry_text = existing_detail.get("inquiry_text")
-    quality = _derive_quality_metrics(body.agent_logs if body.agent_logs else get_execution_logs(db, execution_id), inquiry_text, body.final_reply)
+    quality_logs = [log.model_dump() for log in body.agent_logs] if body.agent_logs else get_execution_logs(db, execution_id)
+    quality = _derive_quality_metrics(quality_logs, inquiry_text, body.final_reply)
     merged_detail = {**existing_detail, **quality, "paused": False}
 
     update_data = {

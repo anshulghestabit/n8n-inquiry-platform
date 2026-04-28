@@ -106,3 +106,16 @@ Verified after Drive file sharing update:
 | `default_fallback_kb` | 178 | `support_ticket` | `default_fallback_kb` | 1 | `drive_name_search` | `google_drive` | 435 | Pass | Controlled temporary target override; normal mapping restored after test. |
 
 Conclusion: Telegram live flow, Sheets debug logging, Google Drive exact-name search, Drive download, and binary content extraction are working for all required named KB files. A small responder fallback was added in the live workflow to prevent malformed/truncated LLM responder JSON from failing an otherwise successful Telegram + KB run.
+
+## Backend Reliability Hardening
+
+Date: 2026-04-28
+
+| Gap | Coverage |
+|---|---|
+| Integration connection semantics | `/system/integrations/{source}/connect` and `/verify` now call n8n before marking a data source connected. Gmail, Drive, Sheets, and Telegram must have readable credential references attached to workflow nodes. Telegram additionally validates `TELEGRAM_BOT_TOKEN` with `getMe`; Sheets additionally requires `GOOGLE_SHEET_ID`. |
+| Live trace fidelity | `/executions/{id}/status` imports live n8n execution details and writes per-agent trace rows containing input, output, validation decision, required/missing keys, duration, status, and errors. |
+| Pause/resume/retry scope | Retained as post-MVP reliability controls. They are useful for demos and debugging but are not acceptance gates for the 10-case MVP matrix. |
+| Analytics exports scope | Retained as post-MVP evidence utilities. They should support validation but are not required for MVP acceptance. |
+
+Remaining evidence needed: run the 10 live cases above against the deployed workflow and paste n8n execution IDs/results into the matrix. The code path now fails closed if n8n dispatch does not return an execution id or if integrations are not verifiably attached/readable.

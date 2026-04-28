@@ -12,10 +12,10 @@ type Integration = {
 }
 
 const labels: Record<SourceType, { name: string; description: string }> = {
-  gmail: { name: 'Gmail', description: 'Receives customer inquiries and sends replies.' },
-  google_sheets: { name: 'Google Sheets', description: 'Stores execution rows from n8n.' },
-  google_drive: { name: 'Google Drive', description: 'Provides KB context for the Researcher.' },
-  telegram: { name: 'Telegram', description: 'Optional second customer channel.' },
+  gmail: { name: 'Gmail', description: 'Verifies an attached n8n Gmail OAuth credential for replies and triggers.' },
+  google_sheets: { name: 'Google Sheets', description: 'Verifies an attached n8n Sheets credential and configured sheet id.' },
+  google_drive: { name: 'Google Drive', description: 'Verifies an attached n8n Drive OAuth credential for KB retrieval.' },
+  telegram: { name: 'Telegram', description: 'Verifies the Telegram bot token and attached n8n Telegram credential.' },
 }
 
 const actionVerb: Record<'connect' | 'verify' | 'disconnect', string> = {
@@ -99,7 +99,7 @@ export default function IntegrationsPage() {
         <div>
           <p className="eyebrow">Layer 6.5</p>
           <h1>Integrations</h1>
-          <p>Connect, verify, and disconnect channel integrations used by workflow execution.</p>
+          <p>Connect only after the backend validates the live n8n credential references used by workflow execution.</p>
         </div>
       </header>
 
@@ -130,7 +130,7 @@ export default function IntegrationsPage() {
                       [sourceType]: event.target.value,
                     }))
                   }
-                  placeholder="Paste API key / token reference"
+                  placeholder="Operator note or credential reference"
                   value={credentialHint[sourceType]}
                 />
               </div>
