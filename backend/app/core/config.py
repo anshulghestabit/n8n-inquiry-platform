@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     n8n_runners_auth_token: str = ""
     google_sheet_id: str = ""
     google_sheet_name: str = "Sheet1"
+    telegram_bot_token: str = ""
+    telegram_webhook_secret: str = ""
 
     # Supabase
     supabase_url: str = ""

@@ -19,7 +19,7 @@ create table public.workflows (
   name text not null,
   description text,
   trigger_channel text check (
-    trigger_channel in ('gmail','whatsapp','both')
+    trigger_channel in ('gmail','telegram','both')
   ) default 'gmail',
   status text check (
     status in ('active','inactive','draft')
@@ -52,7 +52,7 @@ create table public.executions (
   user_id uuid references public.profiles(id) on delete cascade not null,
   n8n_execution_id text,
   source_channel text check (
-    source_channel in ('gmail','whatsapp','test')
+    source_channel in ('gmail','telegram','test')
   ),
   status text check (
     status in ('running','success','failed','cancelled')
@@ -87,7 +87,7 @@ create table public.data_sources (
   id uuid default uuid_generate_v4() primary key,
   user_id uuid references public.profiles(id) on delete cascade not null,
   source_type text check (
-    source_type in ('gmail','whatsapp','google_drive','google_sheets')
+    source_type in ('gmail','telegram','google_drive','google_sheets')
   ) not null,
   is_connected boolean default false,
   last_verified_at timestamptz,
@@ -138,7 +138,7 @@ begin
   insert into public.data_sources (user_id, source_type, is_connected)
   values
     (new.id, 'gmail', false),
-    (new.id, 'whatsapp', false),
+    (new.id, 'telegram', false),
     (new.id, 'google_drive', false),
     (new.id, 'google_sheets', false);
   return new;

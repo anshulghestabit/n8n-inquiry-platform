@@ -65,3 +65,44 @@ To unblock live testing:
 | 10 | order_request | I would like to order 100 units of product X. | Not run | Not run | Not run | Not run | Not run | Not run | Blocked | No | Pending Sheets setup |
 
 Pass criteria per row: all five agents return valid JSON with required keys, Gmail reply arrives, and Google Sheets row is appended.
+
+## Telegram + Drive KB Evidence
+
+Date: 2026-04-27
+
+Live workflow: `tYUVnBenBYrGWAnF` / `Day 4 - Telegram Webhook Relay Live Test`
+
+Webhook path: `telegram-live-test`
+
+Result summary:
+
+| Check | Result |
+|---|---|
+| Telegram webhook relay starts active workflow | Pass |
+| Telegram send node returns `ok: true` | Pass |
+| Intent-to-KB target mapping uses exact requested names | Pass |
+| `KB_Debug_Sheets` appends debug rows to `Sheet1` | Pass |
+| Drive exact-name search finds requested `_kb` files | Pass |
+| Drive download + binary extraction returns KB content | Pass |
+
+Initial blocker evidence:
+
+| Execution | Diagnostic | Result |
+|---:|---|---|
+| 150 | Fail-fast download of selected sales fallback ID | Google Drive returned `The resource you are requesting could not be found`. |
+| 151 | Search query `name contains '_kb'` | Returned 0 visible files. |
+| 152 | Search query `trashed = false`, limit 10 | Credential can list Drive files, including `Inquiry Execution Log` and `sales_inquiry.txt`, but not the required exact `_kb` filenames. |
+
+Verified after Drive file sharing update:
+
+| Intent / KB | Execution | Classification | Target KB filename | Search count | Selection source | KB source | Content length | Telegram | Notes |
+|---|---:|---|---|---:|---|---|---:|---|---|
+| all `_kb` files visible | 159 | `sales_inquiry` | `sales_inquiry_kb` | 6 | `drive_name_search` | `google_drive` | 1022 | Pass | Broad diagnostic found all six exact filenames. |
+| `sales_inquiry` | 171 | `sales_inquiry` | `sales_inquiry_kb` | 1 | `drive_name_search` | `google_drive` | 1022 | Pass | Exact filename search + download succeeded. |
+| `support_ticket` | 172 | `support_ticket` | `support_ticket_kb` | 1 | `drive_name_search` | `google_drive` | 690 | Pass | Exact filename search + download succeeded. |
+| `complaint` | 176 | `complaint` | `complaint_kb` | 1 | `drive_name_search` | `google_drive` | 662 | Pass | Exact filename search + download succeeded. |
+| `general_question` | 174 | `general_question` | `general_question_kb` | 1 | `drive_name_search` | `google_drive` | 566 | Pass | Exact filename search + download succeeded. |
+| `order_request` | 177 | `order_request` | `order_request_kb` | 1 | `drive_name_search` | `google_drive` | 575 | Pass | Exact filename search + download succeeded. |
+| `default_fallback_kb` | 178 | `support_ticket` | `default_fallback_kb` | 1 | `drive_name_search` | `google_drive` | 435 | Pass | Controlled temporary target override; normal mapping restored after test. |
+
+Conclusion: Telegram live flow, Sheets debug logging, Google Drive exact-name search, Drive download, and binary content extraction are working for all required named KB files. A small responder fallback was added in the live workflow to prevent malformed/truncated LLM responder JSON from failing an otherwise successful Telegram + KB run.

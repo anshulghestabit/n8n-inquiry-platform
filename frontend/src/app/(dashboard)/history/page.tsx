@@ -15,7 +15,7 @@ type Execution = {
 }
 
 const statusOptions = ['all', 'running', 'paused', 'success', 'failed', 'cancelled'] as const
-const channelOptions = ['all', 'gmail', 'whatsapp', 'test'] as const
+const channelOptions = ['all', 'gmail', 'telegram', 'test'] as const
 
 function formatDate(value: string): string {
   return new Date(value).toLocaleString()

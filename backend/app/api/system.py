@@ -13,8 +13,8 @@ from app.middleware.auth import get_current_user
 router = APIRouter(prefix="/system", tags=["system"])
 settings = get_settings()
 
-SourceType = Literal["gmail", "whatsapp", "google_drive", "google_sheets"]
-SOURCE_TYPES: list[SourceType] = ["gmail", "whatsapp", "google_drive", "google_sheets"]
+SourceType = Literal["gmail", "telegram", "google_drive", "google_sheets"]
+SOURCE_TYPES: list[SourceType] = ["gmail", "telegram", "google_drive", "google_sheets"]
 
 
 class IntegrationActionRequest(BaseModel):
@@ -65,7 +65,7 @@ async def system_status(current_user: dict = Depends(get_current_user)):
     connection_status = {
         "n8n": False,
         "gmail": False,
-        "whatsapp": False,
+        "telegram": False,
         "google_drive": False,
         "google_sheets": False,
     }

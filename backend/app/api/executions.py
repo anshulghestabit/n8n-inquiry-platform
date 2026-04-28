@@ -1,3 +1,4 @@
+import asyncio
 from datetime import UTC, datetime
 from typing import Literal
 
@@ -17,7 +18,7 @@ router = APIRouter(tags=["executions"])
 settings = get_settings()
 
 AgentRole = Literal["classifier", "researcher", "qualifier", "responder", "executor"]
-SourceChannel = Literal["gmail", "whatsapp", "test"]
+SourceChannel = Literal["gmail", "telegram", "test"]
 ExecutionStatus = Literal["running", "paused", "success", "failed", "cancelled"]
 LogStatus = Literal["success", "failed", "skipped"]
 ExportFormat = Literal["json", "txt", "pdf"]
@@ -110,22 +111,44 @@ def n8n_headers() -> dict[str, str]:
 
 
 async def n8n_request(method: str, path: str, payload: dict | None = None) -> dict:
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.request(
-                method,
-                f"{settings.n8n_url}{path}",
-                headers=n8n_headers(),
-                json=payload,
-                timeout=20.0,
-            )
-            response.raise_for_status()
-    except Exception:
-        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "n8n API unavailable", "N8N_UNAVAILABLE")
+    retryable_statuses = {408, 425, 429, 500, 502, 503, 504}
+    attempts = 3
+    timeout = 20.0
+    last_error_message = "n8n API unavailable"
 
-    if response.status_code == status.HTTP_204_NO_CONTENT:
-        return {}
-    return response.json()
+    for attempt in range(attempts):
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.request(
+                    method,
+                    f"{settings.n8n_url}{path}",
+                    headers=n8n_headers(),
+                    json=payload,
+                    timeout=timeout,
+                )
+                response.raise_for_status()
+
+            if response.status_code == status.HTTP_204_NO_CONTENT:
+                return {}
+            return response.json()
+        except httpx.HTTPStatusError as exc:
+            status_code = exc.response.status_code
+            last_error_message = f"n8n API returned HTTP {status_code}"
+            if status_code in retryable_statuses and attempt < attempts - 1:
+                await asyncio.sleep(0.3 * (attempt + 1))
+                continue
+            break
+        except httpx.RequestError as exc:
+            last_error_message = f"n8n request failed: {exc.__class__.__name__}"
+            if attempt < attempts - 1:
+                await asyncio.sleep(0.3 * (attempt + 1))
+                continue
+            break
+        except Exception:
+            last_error_message = "n8n API unavailable"
+            break
+
+    raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, last_error_message, "N8N_UNAVAILABLE")
 
 
 def _extract_n8n_execution_id(payload: dict) -> str | None:
@@ -156,8 +179,18 @@ async def trigger_n8n_execution(workflow: dict, execution_id: str, body: Trigger
             "sender_id": body.sender_id,
         },
     }
-    response = await n8n_request("POST", f"/rest/workflows/{n8n_workflow_id}/run", run_payload)
-    return _extract_n8n_execution_id(response)
+    run_paths = [f"/rest/workflows/{n8n_workflow_id}/run", f"/api/v1/workflows/{n8n_workflow_id}/run"]
+    for path in run_paths:
+        response = await n8n_request("POST", path, run_payload)
+        parsed = _extract_n8n_execution_id(response)
+        if parsed:
+            return parsed
+
+    raise api_error(
+        status.HTTP_503_SERVICE_UNAVAILABLE,
+        "n8n run request did not return an execution id",
+        "N8N_DISPATCH_FAILED",
+    )
 
 
 def _derive_quality_metrics(agent_logs: list[dict], inquiry_text: str | None, final_reply: str | None) -> dict:

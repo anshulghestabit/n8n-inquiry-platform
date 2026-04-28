@@ -251,7 +251,7 @@ export default function WorkflowDetailPage() {
                   <select id="source_channel" name="source_channel" defaultValue="test">
                     <option value="test">Test</option>
                     <option value="gmail">Gmail</option>
-                    <option value="whatsapp">WhatsApp</option>
+                    <option value="telegram">Telegram</option>
                   </select>
                 </div>
                 <div className="field">

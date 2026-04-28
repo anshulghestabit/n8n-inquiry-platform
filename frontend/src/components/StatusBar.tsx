@@ -6,7 +6,7 @@ import { apiFetch } from '@/lib/api'
 type SystemStatus = {
   n8n: boolean
   gmail: boolean
-  whatsapp: boolean
+  telegram: boolean
   google_drive: boolean
   google_sheets: boolean
 }
@@ -16,7 +16,7 @@ const labels: Array<[keyof SystemStatus, string]> = [
   ['gmail', 'Gmail'],
   ['google_sheets', 'Sheets'],
   ['google_drive', 'Drive'],
-  ['whatsapp', 'WhatsApp'],
+  ['telegram', 'Telegram'],
 ]
 
 export function StatusBar() {

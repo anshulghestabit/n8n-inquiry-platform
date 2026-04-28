@@ -104,7 +104,7 @@ export default function WorkflowsPage() {
             <label htmlFor="trigger_channel">Trigger channel</label>
             <select id="trigger_channel" name="trigger_channel" defaultValue="gmail">
               <option value="gmail">Gmail</option>
-              <option value="whatsapp">WhatsApp</option>
+              <option value="telegram">Telegram</option>
               <option value="both">Both</option>
             </select>
           </div>

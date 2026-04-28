@@ -19,7 +19,7 @@ TEMPLATE_PATH = Path(__file__).resolve().parents[2] / "templates" / "inquiry_wor
 N8N_MUTABLE_KEYS = {"name", "nodes", "connections", "settings"}
 
 AgentRole = Literal["classifier", "researcher", "qualifier", "responder", "executor"]
-TriggerChannel = Literal["gmail", "whatsapp", "both"]
+TriggerChannel = Literal["gmail", "telegram", "both"]
 
 ROLE_TO_NODE = {
     "classifier": "Classifier_Agent",
@@ -117,15 +117,15 @@ def clone_workflow_template(name: str, trigger_channel: TriggerChannel) -> dict:
     workflow["name"] = name
 
     has_gmail_trigger = False
-    has_whatsapp_trigger = False
+    has_telegram_trigger = False
 
     for node in workflow.get("nodes", []):
         node["id"] = f"{node.get('id', node.get('name', 'node'))}-{uuid4().hex[:8]}"
         if node.get("type") == "n8n-nodes-base.gmailTrigger":
             has_gmail_trigger = True
-            node["disabled"] = trigger_channel == "whatsapp"
-        if node.get("type") == "n8n-nodes-base.whatsappTrigger":
-            has_whatsapp_trigger = True
+            node["disabled"] = trigger_channel == "telegram"
+        if node.get("type") in {"n8n-nodes-base.telegramTrigger", "n8n-nodes-base.webhook"} and node.get("name") == "Telegram Trigger":
+            has_telegram_trigger = True
             node["disabled"] = trigger_channel == "gmail"
 
     if trigger_channel == "gmail" and not has_gmail_trigger:
@@ -135,17 +135,17 @@ def clone_workflow_template(name: str, trigger_channel: TriggerChannel) -> dict:
             "TRIGGER_NOT_SUPPORTED",
         )
 
-    if trigger_channel == "whatsapp" and not has_whatsapp_trigger:
+    if trigger_channel == "telegram" and not has_telegram_trigger:
         raise api_error(
             status.HTTP_503_SERVICE_UNAVAILABLE,
-            "WhatsApp trigger is not available in the workflow template",
+            "Telegram trigger is not available in the workflow template",
             "TRIGGER_NOT_SUPPORTED",
         )
 
-    if trigger_channel == "both" and (not has_gmail_trigger or not has_whatsapp_trigger):
+    if trigger_channel == "both" and (not has_gmail_trigger or not has_telegram_trigger):
         raise api_error(
             status.HTTP_503_SERVICE_UNAVAILABLE,
-            "Both-channel trigger mode requires Gmail and WhatsApp trigger nodes",
+            "Both-channel trigger mode requires Gmail and Telegram trigger nodes",
             "TRIGGER_NOT_SUPPORTED",
         )
 

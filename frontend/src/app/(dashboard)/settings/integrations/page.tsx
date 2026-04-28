@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ApiRequestError, apiFetch } from '@/lib/api'
 
-type SourceType = 'gmail' | 'whatsapp' | 'google_drive' | 'google_sheets'
+type SourceType = 'gmail' | 'telegram' | 'google_drive' | 'google_sheets'
 
 type Integration = {
   source_type: SourceType
@@ -15,7 +15,7 @@ const labels: Record<SourceType, { name: string; description: string }> = {
   gmail: { name: 'Gmail', description: 'Receives customer inquiries and sends replies.' },
   google_sheets: { name: 'Google Sheets', description: 'Stores execution rows from n8n.' },
   google_drive: { name: 'Google Drive', description: 'Provides KB context for the Researcher.' },
-  whatsapp: { name: 'WhatsApp', description: 'Optional second customer channel.' },
+  telegram: { name: 'Telegram', description: 'Optional second customer channel.' },
 }
 
 const actionVerb: Record<'connect' | 'verify' | 'disconnect', string> = {
@@ -28,13 +28,13 @@ export default function IntegrationsPage() {
   const [items, setItems] = useState<Integration[]>([])
   const [credentialHint, setCredentialHint] = useState<Record<SourceType, string>>({
     gmail: '',
-    whatsapp: '',
+    telegram: '',
     google_drive: '',
     google_sheets: '',
   })
   const [busy, setBusy] = useState<Record<SourceType, boolean>>({
     gmail: false,
-    whatsapp: false,
+    telegram: false,
     google_drive: false,
     google_sheets: false,
   })
