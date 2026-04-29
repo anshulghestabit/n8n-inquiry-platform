@@ -52,6 +52,22 @@
       }
     },
     {
+      "id": "browser-test-webhook",
+      "name": "Browser Test Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        384
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "customer-inquiry-test",
+        "responseMode": "onReceived",
+        "options": {}
+      }
+    },
+    {
       "id": "normalize-input",
       "name": "Normalize_Input",
       "type": "n8n-nodes-base.code",
@@ -61,7 +77,7 @@
         0
       ],
       "parameters": {
-        "jsCode": "const item = $input.first().json || {};\nconst telegramMessage = item.message || {};\nconst telegramChat = telegramMessage.chat || item.chat || {};\nconst isTelegram = item.source_channel === 'telegram' || Boolean(item.update_id) || Boolean(telegramMessage.text) || Boolean(telegramChat.id);\nconst body = item.inquiry_text || item.original_inquiry || telegramMessage.text || item.text || item.textPlain || item.snippet || item.body || '';\nconst senderEmail = item.sender_email || item.from || item.From || item.sender || '';\nconst senderId = item.sender_id || (isTelegram ? String(telegramMessage.from?.id || telegramChat.id || '') : senderEmail);\nconst telegramChatId = item.telegram_chat_id || telegramChat.id || (isTelegram ? senderId : '');\nconst sourceChannel = item.source_channel || (isTelegram ? 'telegram' : 'gmail');\nreturn [{ json: { original_inquiry: body, sender_email: senderEmail, sender_id: senderId, telegram_chat_id: telegramChatId, subject: item.subject || item.Subject || 'Customer inquiry', message_id: telegramMessage.message_id || item.id || item.messageId || item.message_id || '', source_channel: sourceChannel, execution_meta: { started_at: new Date().toISOString(), agent_durations: {} } } }];"
+        "jsCode": "const rawItem = $input.first().json || {};\nconst item = rawItem.body && typeof rawItem.body === 'object' ? { ...rawItem, ...rawItem.body } : rawItem;\nconst telegramMessage = item.message || {};\nconst telegramChat = telegramMessage.chat || item.chat || {};\nconst isTelegram = item.source_channel === 'telegram' || Boolean(item.update_id) || Boolean(telegramMessage.text) || Boolean(telegramChat.id);\nconst body = item.inquiry_text || item.original_inquiry || telegramMessage.text || item.text || item.textPlain || item.snippet || (typeof item.body === 'string' ? item.body : '') || '';\nconst senderEmail = item.sender_email || item.from || item.From || item.sender || (item.source_channel === 'gmail' ? item.sender_id : '');\nconst senderId = item.sender_id || (isTelegram ? String(telegramMessage.from?.id || telegramChat.id || '') : senderEmail);\nconst telegramChatId = item.telegram_chat_id || telegramChat.id || (isTelegram ? senderId : '');\nconst sourceChannel = item.source_channel || (isTelegram ? 'telegram' : 'gmail');\nreturn [{ json: { original_inquiry: body, sender_email: senderEmail, sender_id: senderId, telegram_chat_id: telegramChatId, subject: item.subject || item.Subject || 'Customer inquiry', message_id: telegramMessage.message_id || item.id || item.messageId || item.message_id || '', source_channel: sourceChannel, execution_meta: { started_at: new Date().toISOString(), agent_durations: {} } } }];"
       }
     },
     {
@@ -859,6 +875,17 @@
       ]
     },
     "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Normalize_Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Browser Test Webhook": {
       "main": [
         [
           {

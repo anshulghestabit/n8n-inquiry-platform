@@ -58,6 +58,8 @@ AGENT_OUTPUT_NODES = {
     "Responder_JSON": "responder",
     "Executor_JSON": "executor",
 }
+TEST_WEBHOOK_NODE = "Browser Test Webhook"
+N8N_MUTABLE_KEYS = {"name", "nodes", "connections", "settings"}
 
 
 class TriggerExecutionRequest(BaseModel):
@@ -164,6 +166,102 @@ async def n8n_request(method: str, path: str, payload: dict | None = None) -> di
     raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, last_error_message, "N8N_UNAVAILABLE")
 
 
+def sanitize_n8n_workflow_payload(workflow: dict) -> dict:
+    return {key: workflow[key] for key in N8N_MUTABLE_KEYS if key in workflow}
+
+
+async def get_n8n_workflow(n8n_workflow_id: str) -> dict:
+    return await n8n_request("GET", f"/api/v1/workflows/{n8n_workflow_id}")
+
+
+async def update_n8n_workflow(n8n_workflow_id: str, workflow: dict) -> dict:
+    return await n8n_request("PUT", f"/api/v1/workflows/{n8n_workflow_id}", sanitize_n8n_workflow_payload(workflow))
+
+
+async def activate_n8n_workflow(n8n_workflow_id: str) -> None:
+    await n8n_request("POST", f"/api/v1/workflows/{n8n_workflow_id}/activate")
+
+
+async def latest_n8n_execution_id(n8n_workflow_id: str) -> str | None:
+    payload = await n8n_request("GET", f"/api/v1/executions?workflowId={n8n_workflow_id}&limit=1")
+    rows = payload.get("data") if isinstance(payload, dict) else None
+    if isinstance(rows, list) and rows:
+        execution_id = rows[0].get("id")
+        return str(execution_id) if execution_id else None
+    return None
+
+
+async def ensure_test_webhook_path(workflow: dict) -> str:
+    agent_config = workflow.get("agent_config") or {}
+    configured_path = agent_config.get("test_webhook_path")
+    if configured_path:
+        return str(configured_path)
+
+    n8n_workflow_id = workflow.get("n8n_workflow_id")
+    if not n8n_workflow_id:
+        raise api_error(status.HTTP_400_BAD_REQUEST, "Workflow has no linked n8n workflow", "N8N_WORKFLOW_MISSING")
+
+    n8n_workflow = await get_n8n_workflow(str(n8n_workflow_id))
+    for node in n8n_workflow.get("nodes", []):
+        if node.get("name") == TEST_WEBHOOK_NODE:
+            path = (node.get("parameters") or {}).get("path")
+            if path:
+                return str(path)
+
+    test_webhook_path = f"browser-test-{execution_safe_uuid()}"
+    n8n_workflow.setdefault("nodes", []).append(
+        {
+            "id": f"browser-test-webhook-{test_webhook_path[-8:]}",
+            "name": TEST_WEBHOOK_NODE,
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2.1,
+            "position": [0, 384],
+            "parameters": {
+                "httpMethod": "POST",
+                "path": test_webhook_path,
+                "responseMode": "onReceived",
+                "options": {},
+            },
+        }
+    )
+    n8n_workflow.setdefault("connections", {})[TEST_WEBHOOK_NODE] = {
+        "main": [[{"node": "Normalize_Input", "type": "main", "index": 0}]]
+    }
+    await update_n8n_workflow(str(n8n_workflow_id), n8n_workflow)
+    return test_webhook_path
+
+
+def execution_safe_uuid() -> str:
+    return datetime.now(UTC).strftime("%Y%m%d%H%M%S%f")
+
+
+async def dispatch_via_test_webhook(n8n_workflow_id: str, webhook_path: str, execution_id: str, body: TriggerExecutionRequest) -> str | None:
+    previous_execution_id = await latest_n8n_execution_id(n8n_workflow_id)
+    await activate_n8n_workflow(n8n_workflow_id)
+    payload = {
+        "execution_id": execution_id,
+        "inquiry_text": body.inquiry_text,
+        "source_channel": body.source_channel,
+        "sender_id": body.sender_id,
+    }
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(f"{settings.n8n_url}/webhook/{webhook_path}", json=payload, timeout=20.0)
+            response.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, f"n8n webhook returned HTTP {exc.response.status_code}", "N8N_UNAVAILABLE")
+    except httpx.RequestError as exc:
+        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, f"n8n webhook request failed: {exc.__class__.__name__}", "N8N_UNAVAILABLE")
+
+    for attempt in range(5):
+        latest_execution_id = await latest_n8n_execution_id(n8n_workflow_id)
+        if latest_execution_id and latest_execution_id != previous_execution_id:
+            return latest_execution_id
+        if attempt < 4:
+            await asyncio.sleep(0.5)
+    return None
+
+
 def _extract_n8n_execution_id(payload: dict) -> str | None:
     candidate = payload.get("id") or payload.get("executionId")
     if candidate:
@@ -180,6 +278,11 @@ async def trigger_n8n_execution(workflow: dict, execution_id: str, body: Trigger
     n8n_workflow_id = workflow.get("n8n_workflow_id")
     if not n8n_workflow_id:
         raise api_error(status.HTTP_400_BAD_REQUEST, "Workflow has no linked n8n workflow", "N8N_WORKFLOW_MISSING")
+
+    webhook_path = await ensure_test_webhook_path(workflow)
+    webhook_execution_id = await dispatch_via_test_webhook(n8n_workflow_id, webhook_path, execution_id, body)
+    if webhook_execution_id:
+        return webhook_execution_id
 
     run_payload = {
         "workflowData": {
@@ -201,7 +304,7 @@ async def trigger_n8n_execution(workflow: dict, execution_id: str, body: Trigger
             last_error = exc
             detail = exc.detail if isinstance(exc.detail, dict) else {}
             message = str(detail.get("error") or exc.detail)
-            if "HTTP 404" in message or "HTTP 405" in message:
+            if "HTTP 401" in message or "HTTP 404" in message or "HTTP 405" in message:
                 continue
             raise
         parsed = _extract_n8n_execution_id(response)

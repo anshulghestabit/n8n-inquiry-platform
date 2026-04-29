@@ -30,6 +30,7 @@ ROLE_TO_NODE = {
     "responder": "Responder_Agent",
     "executor": "Executor_Agent",
 }
+TEST_WEBHOOK_NODE = "Browser Test Webhook"
 
 DEFAULT_AGENTS = [
     {
@@ -137,6 +138,7 @@ def clone_workflow_template(name: str, trigger_channel: TriggerChannel) -> dict:
     workflow.pop("id", None)
     workflow.pop("active", None)
     workflow["name"] = name
+    test_webhook_path = f"browser-test-{uuid4().hex}"
 
     has_gmail_trigger = False
     has_telegram_trigger = False
@@ -149,6 +151,8 @@ def clone_workflow_template(name: str, trigger_channel: TriggerChannel) -> dict:
         if node.get("type") in {"n8n-nodes-base.telegramTrigger", "n8n-nodes-base.webhook"} and node.get("name") == "Telegram Trigger":
             has_telegram_trigger = True
             node["disabled"] = trigger_channel == "gmail"
+        if node.get("name") == TEST_WEBHOOK_NODE:
+            node.setdefault("parameters", {})["path"] = test_webhook_path
 
     if trigger_channel == "gmail" and not has_gmail_trigger:
         raise api_error(
@@ -171,6 +175,7 @@ def clone_workflow_template(name: str, trigger_channel: TriggerChannel) -> dict:
             "TRIGGER_NOT_SUPPORTED",
         )
 
+    workflow["_test_webhook_path"] = test_webhook_path
     return workflow
 
 
@@ -317,7 +322,9 @@ def get_owned_workflow(db, workflow_id: str, user_id: str) -> dict:
 @router.post("/workflows", status_code=status.HTTP_201_CREATED)
 async def create_workflow(data: WorkflowCreateRequest, current_user: dict = Depends(get_current_user)):
     db = get_supabase_admin_client()
-    n8n_workflow = await create_n8n_workflow(clone_workflow_template(data.name, data.trigger_channel))
+    workflow_template = clone_workflow_template(data.name, data.trigger_channel)
+    test_webhook_path = workflow_template.get("_test_webhook_path")
+    n8n_workflow = await create_n8n_workflow(workflow_template)
     n8n_workflow_id = str(n8n_workflow.get("id", ""))
     workflow_id = None
 
@@ -332,7 +339,7 @@ async def create_workflow(data: WorkflowCreateRequest, current_user: dict = Depe
                     "trigger_channel": data.trigger_channel,
                     "status": "draft",
                     "n8n_workflow_id": n8n_workflow_id,
-                    "agent_config": {},
+                    "agent_config": {"test_webhook_path": test_webhook_path},
                 }
             )
             .execute()
