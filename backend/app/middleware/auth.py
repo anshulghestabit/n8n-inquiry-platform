@@ -25,14 +25,21 @@ async def get_jwk(kid: str) -> dict | None:
     if kid in _jwks_cache:
         return _jwks_cache[kid]
 
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            f"{settings.supabase_url}/auth/v1/.well-known/jwks.json",
-            timeout=5.0,
-        )
-        response.raise_for_status()
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{settings.supabase_url}/auth/v1/.well-known/jwks.json",
+                timeout=5.0,
+            )
+            response.raise_for_status()
+        payload = response.json()
+    except (httpx.HTTPError, ValueError) as exc:
+        raise JWTError("Supabase JWK lookup failed") from exc
 
-    for key in response.json().get("keys", []):
+    if not isinstance(payload, dict):
+        raise JWTError("Supabase JWK lookup returned invalid payload")
+
+    for key in payload.get("keys", []):
         if key.get("kid"):
             _jwks_cache[key["kid"]] = key
 

@@ -107,7 +107,10 @@ def get_owned_execution(db, execution_id: str, user_id: str) -> dict:
 
 
 def get_execution_logs(db, execution_id: str) -> list[dict]:
-    result = db.table("agent_logs").select("*").eq("execution_id", execution_id).order("created_at").execute()
+    try:
+        result = db.table("agent_logs").select("*").eq("execution_id", execution_id).order("created_at").execute()
+    except Exception:
+        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "Database query failed", "DB_ERROR")
     logs = result.data or []
     return sorted(logs, key=lambda row: ROLE_ORDER.get(row.get("agent_role", ""), 99))
 
@@ -313,7 +316,10 @@ def _extract_logs_from_n8n(detail: dict) -> list[dict]:
         for entry in entries:
             if not isinstance(entry, dict):
                 continue
-            duration_ms = int(entry.get("executionTime") or 0)
+            try:
+                duration_ms = int(entry.get("executionTime") or 0)
+            except (TypeError, ValueError):
+                duration_ms = 0
             status_value = "failed" if entry.get("error") else "success"
             role = NODE_TO_AGENT.get(node_name)
             if role:
@@ -377,16 +383,22 @@ async def sync_execution_from_n8n(db, execution: dict) -> dict:
         return execution
 
     logs = _extract_logs_from_n8n(detail)
-    if logs:
-        db.table("agent_logs").delete().eq("execution_id", execution["id"]).execute()
-        db.table("agent_logs").insert([{**row, "execution_id": execution["id"]} for row in logs]).execute()
+    try:
+        if logs:
+            db.table("agent_logs").delete().eq("execution_id", execution["id"]).execute()
+            db.table("agent_logs").insert([{**row, "execution_id": execution["id"]} for row in logs]).execute()
+    except Exception:
+        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "Database query failed", "DB_ERROR")
 
     started_at = execution.get("started_at")
     finished_at = datetime.now(UTC)
     duration_ms = None
     if started_at:
-        started_dt = datetime.fromisoformat(started_at.replace("Z", "+00:00"))
-        duration_ms = int((finished_at - started_dt).total_seconds() * 1000)
+        try:
+            started_dt = datetime.fromisoformat(started_at.replace("Z", "+00:00"))
+            duration_ms = int((finished_at - started_dt).total_seconds() * 1000)
+        except ValueError:
+            duration_ms = None
 
     detail_payload = execution.get("scorecard_detail") or {}
     quality = _derive_quality_metrics(logs, detail_payload.get("inquiry_text"), execution.get("final_reply"))
@@ -401,7 +413,10 @@ async def sync_execution_from_n8n(db, execution: dict) -> dict:
     if not execution.get("score") and quality.get("quality"):
         update_data["score"] = max(1, min(10, round((quality["quality"]["overall_quality_score"] or 0) / 10)))
 
-    result = db.table("executions").update(update_data).eq("id", execution["id"]).execute()
+    try:
+        result = db.table("executions").update(update_data).eq("id", execution["id"]).execute()
+    except Exception:
+        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "Database query failed", "DB_ERROR")
     return result.data[0]
 
 
@@ -457,22 +472,28 @@ async def trigger_execution(
             **(execution.get("scorecard_detail") or {}),
             "n8n_trigger_error": exc.detail,
         }
-        db.table("executions").update(
-            {
-                "status": "failed",
-                "finished_at": datetime.now(UTC).isoformat(),
-                "scorecard_detail": failed_detail,
-            }
-        ).eq("id", execution["id"]).execute()
+        try:
+            db.table("executions").update(
+                {
+                    "status": "failed",
+                    "finished_at": datetime.now(UTC).isoformat(),
+                    "scorecard_detail": failed_detail,
+                }
+            ).eq("id", execution["id"]).execute()
+        except Exception:
+            pass
         raise
     if n8n_execution_id:
-        execution = (
-            db.table("executions")
-            .update({"n8n_execution_id": n8n_execution_id})
-            .eq("id", execution["id"])
-            .execute()
-            .data[0]
-        )
+        try:
+            execution = (
+                db.table("executions")
+                .update({"n8n_execution_id": n8n_execution_id})
+                .eq("id", execution["id"])
+                .execute()
+                .data[0]
+            )
+        except Exception:
+            raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "Database query failed", "DB_ERROR")
 
     return {
         "execution_id": execution["id"],
@@ -592,7 +613,10 @@ async def pause_execution(execution_id: str, current_user: dict = Depends(get_cu
             pass
 
     next_detail = {**detail, "paused": True, "paused_at": datetime.now(UTC).isoformat()}
-    result = db.table("executions").update({"scorecard_detail": next_detail}).eq("id", execution_id).execute()
+    try:
+        result = db.table("executions").update({"scorecard_detail": next_detail}).eq("id", execution_id).execute()
+    except Exception:
+        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "Database query failed", "DB_ERROR")
     return {"id": execution_id, "status": "paused", "message": "Execution paused", "execution": result.data[0]}
 
 
@@ -619,7 +643,10 @@ async def resume_execution(execution_id: str, current_user: dict = Depends(get_c
             "paused": False,
         },
     }
-    result = db.table("executions").insert(payload).execute()
+    try:
+        result = db.table("executions").insert(payload).execute()
+    except Exception:
+        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "Database query failed", "DB_ERROR")
     new_execution = result.data[0]
 
     body = TriggerExecutionRequest(
@@ -634,22 +661,28 @@ async def resume_execution(execution_id: str, current_user: dict = Depends(get_c
             **(new_execution.get("scorecard_detail") or {}),
             "n8n_trigger_error": exc.detail,
         }
-        db.table("executions").update(
-            {
-                "status": "failed",
-                "finished_at": datetime.now(UTC).isoformat(),
-                "scorecard_detail": failed_detail,
-            }
-        ).eq("id", new_execution["id"]).execute()
+        try:
+            db.table("executions").update(
+                {
+                    "status": "failed",
+                    "finished_at": datetime.now(UTC).isoformat(),
+                    "scorecard_detail": failed_detail,
+                }
+            ).eq("id", new_execution["id"]).execute()
+        except Exception:
+            pass
         raise
     if n8n_execution_id:
-        new_execution = (
-            db.table("executions")
-            .update({"n8n_execution_id": n8n_execution_id})
-            .eq("id", new_execution["id"])
-            .execute()
-            .data[0]
-        )
+        try:
+            new_execution = (
+                db.table("executions")
+                .update({"n8n_execution_id": n8n_execution_id})
+                .eq("id", new_execution["id"])
+                .execute()
+                .data[0]
+            )
+        except Exception:
+            raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "Database query failed", "DB_ERROR")
 
     return {
         "execution_id": new_execution["id"],
@@ -697,22 +730,28 @@ async def retry_execution(execution_id: str, current_user: dict = Depends(get_cu
             **(new_execution.get("scorecard_detail") or {}),
             "n8n_trigger_error": exc.detail,
         }
-        db.table("executions").update(
-            {
-                "status": "failed",
-                "finished_at": datetime.now(UTC).isoformat(),
-                "scorecard_detail": failed_detail,
-            }
-        ).eq("id", new_execution["id"]).execute()
+        try:
+            db.table("executions").update(
+                {
+                    "status": "failed",
+                    "finished_at": datetime.now(UTC).isoformat(),
+                    "scorecard_detail": failed_detail,
+                }
+            ).eq("id", new_execution["id"]).execute()
+        except Exception:
+            pass
         raise
     if n8n_execution_id:
-        new_execution = (
-            db.table("executions")
-            .update({"n8n_execution_id": n8n_execution_id})
-            .eq("id", new_execution["id"])
-            .execute()
-            .data[0]
-        )
+        try:
+            new_execution = (
+                db.table("executions")
+                .update({"n8n_execution_id": n8n_execution_id})
+                .eq("id", new_execution["id"])
+                .execute()
+                .data[0]
+            )
+        except Exception:
+            raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "Database query failed", "DB_ERROR")
 
     return {
         "execution_id": new_execution["id"],

@@ -35,9 +35,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function logout() {
-    await apiFetch<{ message: string }>('/auth/logout', { method: 'POST' })
-    setUser(null)
-    window.location.href = '/login'
+    try {
+      await apiFetch<{ message: string }>('/auth/logout', { method: 'POST' })
+    } finally {
+      setUser(null)
+      setLoading(false)
+      window.location.href = '/login'
+    }
   }
 
   useEffect(() => {

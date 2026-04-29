@@ -1,5 +1,6 @@
 from collections import defaultdict
 from datetime import datetime
+import logging
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -11,6 +12,7 @@ from app.middleware.auth import get_current_user
 
 
 router = APIRouter(tags=["analytics"])
+logger = logging.getLogger(__name__)
 
 ExportFormat = Literal["csv", "pdf"]
 AGENT_ROLES = ["classifier", "researcher", "qualifier", "responder", "executor"]
@@ -24,6 +26,13 @@ def _safe_average(values: list[float]) -> float:
     return (sum(values) / len(values)) if values else 0.0
 
 
+def _safe_float(value) -> float | None:
+    try:
+        return float(value) if value is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
 @router.get("/analytics/summary")
 async def analytics_summary(current_user: dict = Depends(get_current_user)):
     db = get_supabase_admin_client()
@@ -35,17 +44,17 @@ async def analytics_summary(current_user: dict = Depends(get_current_user)):
     rows = result.data or []
     total = len(rows)
     success_count = sum(1 for row in rows if row.get("status") == "success")
-    durations = [float(row["duration_ms"]) for row in rows if row.get("duration_ms") is not None]
-    scores = [float(row["score"]) for row in rows if row.get("score") is not None]
+    durations = [value for row in rows if (value := _safe_float(row.get("duration_ms"))) is not None]
+    scores = [value for row in rows if (value := _safe_float(row.get("score"))) is not None]
     relevance_scores = [
-        float((row.get("scorecard_detail") or {}).get("quality", {}).get("relevance_score"))
+        value
         for row in rows
-        if (row.get("scorecard_detail") or {}).get("quality", {}).get("relevance_score") is not None
+        if (value := _safe_float((row.get("scorecard_detail") or {}).get("quality", {}).get("relevance_score"))) is not None
     ]
     completeness_scores = [
-        float((row.get("scorecard_detail") or {}).get("quality", {}).get("completeness_score"))
+        value
         for row in rows
-        if (row.get("scorecard_detail") or {}).get("quality", {}).get("completeness_score") is not None
+        if (value := _safe_float((row.get("scorecard_detail") or {}).get("quality", {}).get("completeness_score"))) is not None
     ]
 
     return {
@@ -71,7 +80,11 @@ async def analytics_chart(current_user: dict = Depends(get_current_user)):
         started_at = row.get("started_at")
         if not started_at:
             continue
-        date_key = datetime.fromisoformat(started_at.replace("Z", "+00:00")).date().isoformat()
+        try:
+            date_key = datetime.fromisoformat(started_at.replace("Z", "+00:00")).date().isoformat()
+        except (TypeError, ValueError):
+            logger.warning("Skipping execution with invalid started_at value")
+            continue
         daily[date_key]["date"] = date_key
         daily[date_key]["count"] += 1
         if row.get("status") == "success":
@@ -114,7 +127,7 @@ async def analytics_agents(current_user: dict = Depends(get_current_user)):
         role = log.get("agent_role")
         if role in role_rows:
             role_rows[role].append(log)
-            total_duration_all_logs += float(log.get("duration_ms") or 0)
+            total_duration_all_logs += _safe_float(log.get("duration_ms")) or 0
 
     bottleneck_counts = defaultdict(int)
     for row in execution_rows:
@@ -126,7 +139,7 @@ async def analytics_agents(current_user: dict = Depends(get_current_user)):
     output = []
     for role in AGENT_ROLES:
         rows = role_rows[role]
-        durations = [float(row.get("duration_ms") or 0) for row in rows]
+        durations = [_safe_float(row.get("duration_ms")) or 0 for row in rows]
         avg_duration = _safe_average(durations)
         success_count = sum(1 for row in rows if row.get("status") == "success")
         success_rate = round((success_count / len(rows)) * 100, 2) if rows else 0.0
@@ -175,7 +188,11 @@ async def export_analytics(
         raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "Database query failed", "DB_ERROR")
 
     if format == "csv":
-        csv_output = render_executions_csv(executions)
+        try:
+            csv_output = render_executions_csv(executions)
+        except Exception:
+            logger.exception("Failed to render analytics CSV export")
+            raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "Export generation failed", "EXPORT_ERROR")
         return Response(
             content=csv_output,
             media_type="text/csv",
@@ -192,7 +209,11 @@ async def export_analytics(
         "inquiry_snippet": f"Total rows exported: {len(executions)}",
         "final_reply": "This PDF includes high-level export metadata. Use CSV for full row-level analytics.",
     }
-    pdf_bytes = render_execution_pdf(synthetic_execution, [])
+    try:
+        pdf_bytes = render_execution_pdf(synthetic_execution, [])
+    except Exception:
+        logger.exception("Failed to render analytics PDF export")
+        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "Export generation failed", "EXPORT_ERROR")
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",

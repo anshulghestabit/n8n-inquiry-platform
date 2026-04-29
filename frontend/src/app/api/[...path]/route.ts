@@ -3,24 +3,31 @@ import { NextRequest } from 'next/server'
 const INTERNAL_API_URL = process.env.INTERNAL_API_URL || 'http://backend:8000'
 
 async function proxyRequest(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
-  const { path } = await context.params
-  const targetUrl = new URL(`/${path.join('/')}${request.nextUrl.search}`, INTERNAL_API_URL)
-  const headers = new Headers(request.headers)
+  try {
+    const { path } = await context.params
+    const targetUrl = new URL(`/${path.join('/')}${request.nextUrl.search}`, INTERNAL_API_URL)
+    const headers = new Headers(request.headers)
 
-  headers.delete('host')
+    headers.delete('host')
 
-  const response = await fetch(targetUrl, {
-    method: request.method,
-    headers,
-    body: ['GET', 'HEAD'].includes(request.method) ? undefined : await request.arrayBuffer(),
-    redirect: 'manual',
-  })
+    const response = await fetch(targetUrl, {
+      method: request.method,
+      headers,
+      body: ['GET', 'HEAD'].includes(request.method) ? undefined : await request.arrayBuffer(),
+      redirect: 'manual',
+    })
 
-  return new Response(response.body, {
-    status: response.status,
-    statusText: response.statusText,
-    headers: response.headers,
-  })
+    return new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers,
+    })
+  } catch {
+    return Response.json(
+      { detail: { error: 'Backend API unavailable', code: 'API_PROXY_FAILED' } },
+      { status: 502 },
+    )
+  }
 }
 
 export const GET = proxyRequest

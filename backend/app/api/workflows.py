@@ -1,4 +1,5 @@
 import json
+import logging
 from pathlib import Path
 from typing import Literal
 from uuid import uuid4
@@ -14,6 +15,7 @@ from app.middleware.auth import get_current_user
 
 router = APIRouter(tags=["workflows"])
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 TEMPLATE_PATH = Path(__file__).resolve().parents[2] / "templates" / "inquiry_workflow.json"
 N8N_MUTABLE_KEYS = {"name", "nodes", "connections", "settings"}
@@ -119,8 +121,15 @@ def n8n_headers() -> dict[str, str]:
 
 
 def clone_workflow_template(name: str, trigger_channel: TriggerChannel) -> dict:
-    with TEMPLATE_PATH.open() as template_file:
-        workflow = json.load(template_file)
+    try:
+        with TEMPLATE_PATH.open() as template_file:
+            workflow = json.load(template_file)
+    except FileNotFoundError:
+        logger.exception("Workflow template file is missing")
+        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "Workflow template is not configured", "TEMPLATE_UNAVAILABLE")
+    except json.JSONDecodeError:
+        logger.exception("Workflow template contains invalid JSON")
+        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "Workflow template is invalid", "TEMPLATE_INVALID")
 
     workflow.pop("id", None)
     workflow.pop("active", None)
@@ -177,12 +186,19 @@ async def n8n_request(method: str, path: str, payload: dict | None = None) -> di
                 timeout=10.0,
             )
             response.raise_for_status()
-    except Exception:
+    except HTTPException:
+        raise
+    except (httpx.HTTPError, ValueError):
+        logger.exception("n8n API request failed")
         raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "n8n API unavailable", "N8N_UNAVAILABLE")
 
     if response.status_code == status.HTTP_204_NO_CONTENT:
         return {}
-    return response.json()
+    try:
+        return response.json()
+    except ValueError:
+        logger.exception("n8n API returned invalid JSON")
+        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "n8n API returned invalid response", "N8N_INVALID_RESPONSE")
 
 
 async def create_n8n_workflow(workflow: dict) -> dict:
@@ -221,7 +237,11 @@ def backfill_legacy_agent_prompts(db, agents: list[dict]) -> list[dict]:
                 "handoff_rules": default_agent["handoff_rules"],
                 "output_format": default_agent["output_format"],
             }
-            db.table("agents").update(update_data).eq("id", agent["id"]).execute()
+            try:
+                db.table("agents").update(update_data).eq("id", agent["id"]).execute()
+            except Exception:
+                logger.exception("Failed to backfill legacy agent prompt")
+                raise
             agent = {**agent, **update_data}
         updated_agents.append(agent)
     return updated_agents
@@ -286,6 +306,8 @@ def get_owned_workflow(db, workflow_id: str, user_id: str) -> dict:
         result = db.table("workflows").select("*").eq("id", workflow_id).eq("user_id", user_id).single().execute()
     except Exception:
         raise api_error(status.HTTP_404_NOT_FOUND, "Workflow not found", "NOT_FOUND")
+    if not result.data:
+        raise api_error(status.HTTP_404_NOT_FOUND, "Workflow not found", "NOT_FOUND")
     return result.data
 
 
@@ -312,20 +334,23 @@ async def create_workflow(data: WorkflowCreateRequest, current_user: dict = Depe
             )
             .execute()
         )
+        if not workflow_result.data:
+            raise RuntimeError("Workflow insert returned no rows")
         workflow = workflow_result.data[0]
         workflow_id = workflow["id"]
         db.table("agents").insert(agent_rows(workflow["id"])).execute()
     except Exception:
+        logger.exception("Failed to create workflow records")
         if workflow_id:
             try:
                 db.table("workflows").delete().eq("id", workflow_id).execute()
             except Exception:
-                pass
+                logger.exception("Failed to rollback workflow record")
         if n8n_workflow_id:
             try:
                 await delete_n8n_workflow(n8n_workflow_id)
             except Exception:
-                pass
+                logger.exception("Failed to rollback n8n workflow")
         raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "Database query failed", "DB_ERROR")
 
     return workflow
@@ -351,7 +376,10 @@ async def list_workflows(current_user: dict = Depends(get_current_user)):
 async def get_workflow(workflow_id: str, current_user: dict = Depends(get_current_user)):
     db = get_supabase_admin_client()
     workflow = get_owned_workflow(db, workflow_id, current_user["id"])
-    agents = db.table("agents").select("*").eq("workflow_id", workflow_id).order("order_index").execute()
+    try:
+        agents = db.table("agents").select("*").eq("workflow_id", workflow_id).order("order_index").execute()
+    except Exception:
+        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "Database query failed", "DB_ERROR")
     return {**workflow, "agents": agents.data or []}
 
 
@@ -376,6 +404,8 @@ async def update_workflow(
         result = db.table("workflows").update(update_data).eq("id", workflow_id).execute()
     except Exception:
         raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "Database query failed", "DB_ERROR")
+    if not result.data:
+        raise api_error(status.HTTP_404_NOT_FOUND, "Workflow not found", "NOT_FOUND")
     return result.data[0]
 
 
@@ -418,6 +448,8 @@ async def update_agent(
         raise api_error(status.HTTP_404_NOT_FOUND, "Agent not found", "NOT_FOUND")
 
     agent = agent_result.data
+    if not agent:
+        raise api_error(status.HTTP_404_NOT_FOUND, "Agent not found", "NOT_FOUND")
     workflow = get_owned_workflow(db, agent["workflow_id"], current_user["id"])
     await sync_agent_to_n8n(workflow["n8n_workflow_id"], agent["role"], data.system_prompt)
 
@@ -426,4 +458,6 @@ async def update_agent(
         result = db.table("agents").update(update_data).eq("id", agent_id).execute()
     except Exception:
         raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "Database query failed", "DB_ERROR")
+    if not result.data:
+        raise api_error(status.HTTP_404_NOT_FOUND, "Agent not found", "NOT_FOUND")
     return result.data[0]
