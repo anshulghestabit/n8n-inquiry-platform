@@ -41,10 +41,9 @@ async def chat(system_prompt: str, user_message: str) -> str:
     Single unified chat call used by all 5 agents.
     Sarvam and LM Studio both speak OpenAI protocol.
     """
-    client = get_llm_client()
-    model = get_model_name()
-
     try:
+        client = get_llm_client()
+        model = get_model_name()
         response = client.chat.completions.create(
             model=model,
             messages=[
@@ -57,6 +56,9 @@ async def chat(system_prompt: str, user_message: str) -> str:
     except OpenAIError:
         logger.exception("LLM chat completion failed")
         raise RuntimeError("LLM request failed")
+    except (RuntimeError, ValueError):
+        logger.exception("LLM configuration failed")
+        raise RuntimeError("LLM configuration failed")
 
     if not response.choices:
         raise RuntimeError("LLM response did not include choices")

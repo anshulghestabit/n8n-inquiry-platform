@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from datetime import UTC, datetime
 from typing import Literal
 
@@ -14,6 +15,7 @@ from app.middleware.auth import get_current_user
 
 
 router = APIRouter(tags=["executions"])
+logger = logging.getLogger(__name__)
 
 settings = get_settings()
 
@@ -844,7 +846,11 @@ async def export_execution(
             headers={"Content-Disposition": f"attachment; filename=execution-{execution_id}.txt"},
         )
 
-    pdf_bytes = render_execution_pdf(execution, logs)
+    try:
+        pdf_bytes = render_execution_pdf(execution, logs)
+    except Exception:
+        logger.exception("Failed to render execution PDF export")
+        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "Export generation failed", "EXPORT_ERROR")
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",

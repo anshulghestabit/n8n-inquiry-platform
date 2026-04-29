@@ -127,6 +127,9 @@ def clone_workflow_template(name: str, trigger_channel: TriggerChannel) -> dict:
     except FileNotFoundError:
         logger.exception("Workflow template file is missing")
         raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "Workflow template is not configured", "TEMPLATE_UNAVAILABLE")
+    except OSError:
+        logger.exception("Workflow template file could not be read")
+        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "Workflow template is not readable", "TEMPLATE_UNAVAILABLE")
     except json.JSONDecodeError:
         logger.exception("Workflow template contains invalid JSON")
         raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "Workflow template is invalid", "TEMPLATE_INVALID")

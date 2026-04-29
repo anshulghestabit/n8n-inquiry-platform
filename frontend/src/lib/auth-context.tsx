@@ -37,6 +37,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   async function logout() {
     try {
       await apiFetch<{ message: string }>('/auth/logout', { method: 'POST' })
+    } catch {
+      // Local logout should continue even if the server-side session cleanup fails.
     } finally {
       setUser(null)
       setLoading(false)
