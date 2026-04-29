@@ -17,6 +17,7 @@ export default function WorkflowsPage() {
   const [workflows, setWorkflows] = useState<Workflow[]>([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   const [error, setError] = useState('')
 
   async function loadWorkflows() {
@@ -79,6 +80,25 @@ export default function WorkflowsPage() {
     }
   }
 
+  async function handleDelete(workflow: Workflow) {
+    const confirmed = window.confirm(`Delete workflow "${workflow.name}"? This also removes the linked n8n workflow.`)
+    if (!confirmed) {
+      return
+    }
+
+    setDeletingId(workflow.id)
+    setError('')
+
+    try {
+      await apiFetch(`/workflows/${workflow.id}`, { method: 'DELETE' })
+      await loadWorkflows()
+    } catch (err) {
+      setError(err instanceof ApiRequestError ? err.message : 'Unable to delete workflow')
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
   return (
     <>
       <header className="page-header">
@@ -130,6 +150,14 @@ export default function WorkflowsPage() {
                 <Link className="button secondary" href={`/workflows/${workflow.id}`}>Open</Link>
                 <Link className="button secondary" href={`/workflows/${workflow.id}/agents`}>Agents</Link>
                 <Link className="button secondary" href={`/workflows/${workflow.id}/edit`}>Edit</Link>
+                <button
+                  className="button secondary"
+                  disabled={deletingId === workflow.id}
+                  onClick={() => handleDelete(workflow)}
+                  type="button"
+                >
+                  {deletingId === workflow.id ? 'Deleting...' : 'Delete'}
+                </button>
               </div>
             </div>
           ))}
