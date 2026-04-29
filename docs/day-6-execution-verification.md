@@ -4,7 +4,7 @@ Date: 2026-04-27
 
 Environment:
 - Backend: `http://localhost:8000`
-- n8n API: `http://localhost:5678/api/v1`
+- n8n API: `https://n8n.anshul-garg.com/api/v1`
 
 Test user:
 - `day5_1777291591@example.com`

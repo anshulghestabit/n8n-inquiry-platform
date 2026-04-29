@@ -112,7 +112,7 @@ This is the longest step but only needs to be done once:
 10. Choose **Web application**
 11. Under "Authorized redirect URIs", add:
     ```
-    http://localhost:5678/rest/oauth2-credential/callback
+    https://n8n.anshul-garg.com/rest/oauth2-credential/callback
     ```
 12. Click Create
 13. Copy your **Client ID** and **Client Secret**
@@ -211,14 +211,14 @@ docker compose up --build
 
 This starts:
 - **FastAPI** (backend) at http://localhost:8000
-- **n8n** (workflow engine) at http://localhost:5678
+- **n8n** (workflow engine) at https://n8n.anshul-garg.com
 - **PostgreSQL** (database)
 
 Wait 1-2 minutes for everything to start. You'll see messages like "backend-1 ready".
 
 ### 4.2 Set Up n8n
 
-1. Open http://localhost:5678 in your browser
+1. Open https://n8n.anshul-garg.com in your browser
 2. Click "Start" to create your n8n account
 3. Set up your owner account (email/password)
 4. Go to **Settings** (gear icon) → **API**
@@ -232,7 +232,7 @@ Wait 1-2 minutes for everything to start. You'll see messages like "backend-1 re
 
 ### 4.3 Set Up Google in n8n
 
-1. In n8n (http://localhost:5678), go to **Settings** → **Credentials**
+1. In n8n (https://n8n.anshul-garg.com), go to **Settings** → **Credentials**
 2. Click "New" → search "Google OAuth2"
 3. Paste your Google **Client ID** and **Client Secret** from Step 2.3
 4. Click "Sign in with Google"
@@ -384,7 +384,7 @@ You can:
 
 - **Frontend UI:** http://localhost:3000
 - **Backend API:** http://localhost:8000/docs
-- **n8n Editor:** http://localhost:5678
+- **n8n Editor:** https://n8n.anshul-garg.com
 - **Supabase:** https://supabase.com/dashboard
 
 ---

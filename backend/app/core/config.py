@@ -31,6 +31,8 @@ class Settings(BaseSettings):
     environment: str = "development"
     frontend_url: str = "http://localhost:3000"
     next_public_api_url: str = "http://localhost:8000"
+    auth_cookie_domain: str = ""
+    auth_cookie_secure: bool = False
 
     class Config:
         env_file = ".env"

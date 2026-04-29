@@ -475,18 +475,48 @@ Based on the present codebase:
 
 ## 19. How to Run
 
-Install and start all services with Docker Compose:
+Install and start all services with Docker Compose. The default setup expects a Cloudflare Tunnel hostname at `https://n8n.anshul-garg.com` so webhook URLs stay stable across restarts.
 
 ```bash
 cp .env.example .env
 docker compose up --build
 ```
 
+### 19.1 Cloudflare Tunnel Setup
+
+Use Cloudflare Zero Trust to create a named tunnel for the domain `anshul-garg.com`:
+
+1. Go to Cloudflare Zero Trust: `https://one.dash.cloudflare.com`.
+2. Open `Networks -> Tunnels -> Create a tunnel`.
+3. Choose `Cloudflared` and name it `n8n-inquiry-platform`.
+4. Choose the Docker connector option and copy the tunnel token.
+5. Add a public hostname with `Subdomain: n8n`, `Domain: anshul-garg.com`, `Type: HTTP`, and `URL: http://n8n:5678`.
+6. Put the copied token in `.env` as `CLOUDFLARED_TUNNEL_TOKEN`.
+7. Use these public URL settings in `.env`:
+
+```env
+WEBHOOK_URL=https://n8n.anshul-garg.com
+N8N_HOST=n8n.anshul-garg.com
+N8N_PROTOCOL=https
+N8N_EDITOR_BASE_URL=https://n8n.anshul-garg.com
+CLOUDFLARED_TUNNEL_TOKEN=your_cloudflare_tunnel_token_here
+```
+
+After changing `WEBHOOK_URL`, restart n8n so it regenerates webhook URLs with the stable domain:
+
+```bash
+docker compose up -d
+docker compose restart n8n
+```
+
+The Cloudflare tunnel container runs inside the same Docker network as n8n, so the Cloudflare public hostname must point to `http://n8n:5678`, not `http://localhost:5678`.
+
 Open:
 
 - Frontend: `http://localhost:3000`
 - Backend: `http://localhost:8000`
-- n8n: `http://localhost:5678`
+- n8n: `https://n8n.anshul-garg.com`
+- Public n8n/webhook URL: `https://n8n.anshul-garg.com`
 
 ---
 

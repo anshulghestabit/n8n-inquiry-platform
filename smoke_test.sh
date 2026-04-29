@@ -2,6 +2,7 @@
 set -e
 
 COOKIES=/tmp/smoke_cookies.txt
+N8N_PUBLIC_URL=${N8N_PUBLIC_URL:-https://n8n.anshul-garg.com}
 COUNTER=0
 PASS=0
 FAIL=0
@@ -21,7 +22,7 @@ STATUS=$(curl -sf http://localhost:8000/health 2>/dev/null | grep -o '"status":"
 if [ -n "$STATUS" ]; then pass; else fail; fi
 
 echo -n "L0 n8n API: "
-N8N_DATA=$(curl -sf -H "X-N8N-API-KEY: ${N8N_API_KEY:-test}" http://localhost:5678/api/v1/workflows 2>/dev/null | grep -o '"data"' || true)
+N8N_DATA=$(curl -sf -H "X-N8N-API-KEY: ${N8N_API_KEY:-test}" "$N8N_PUBLIC_URL/api/v1/workflows" 2>/dev/null | grep -o '"data"' || true)
 if [ -n "$N8N_DATA" ]; then pass; else fail; fi
 
 echo -n "L5 Auth register: "

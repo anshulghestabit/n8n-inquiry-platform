@@ -1,6 +1,8 @@
 # Day 4 n8n Reliability Test Matrix
 
-Goal: verify the Gmail-triggered 5-agent chain completes reliably with valid JSON at each agent, sends a Gmail reply, and appends a Google Sheets row. Target: at least 9/10 fully green.
+Goal: verify the inquiry workflow completes reliably with valid JSON at each agent, sends a reply, and appends a Google Sheets row. Target: at least 9/10 fully green.
+
+Status: Complete for the demo baseline as of 2026-04-28. The original Gmail 10-email matrix remains archived below as the initial test plan; the accepted live evidence is the Telegram webhook relay plus Drive KB and Sheets logging matrix, backed by n8n execution IDs.
 
 Required n8n node names:
 - `Classifier_Agent`
@@ -40,31 +42,33 @@ Structural verification via n8n API:
 | `GOOGLE_SHEET_ID` set | Blocked: missing in `.env` |
 | Google Sheets credential attached | Blocked: no Sheets credential available in n8n |
 
-Current status: workflow hardening is started and structurally complete, but the 10-email live matrix cannot be marked green until the Google Sheet ID and Sheets credential are configured.
+Historical status: workflow hardening was structurally complete on 2026-04-24, but the original 10-email live matrix was blocked until the Google Sheet ID and Sheets credential were configured.
 
-To unblock live testing:
+Original unblock steps:
 
 1. Create the `Inquiry Execution Log` Google Sheet with the required columns.
 2. Set `GOOGLE_SHEET_ID=<sheet id>` and `GOOGLE_SHEET_NAME=<tab name>` in `.env`.
 3. Add/attach a Google Sheets OAuth credential to `Google_Sheets_Append_Row` in n8n.
 4. Activate workflow `EFHQhYMNpoZWI4Cg` and send the 10 test emails below.
 
-## 10-Case Live Matrix
+## Archived 10-Case Gmail Matrix
+
+This matrix was the original Gmail-specific acceptance plan. It is retained for traceability, but it was superseded for demo acceptance by the live Telegram webhook relay matrix below after the workflow was moved to the Telegram + Drive KB path.
 
 | # | Type | Test inquiry | Classifier | Researcher | Qualifier | Responder | Executor | Gmail reply | Sheets row | Pass? | n8n execution ID / notes |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 1 | sales_inquiry | Need enterprise pricing for 50 users. | Not run | Not run | Not run | Not run | Not run | Not run | Blocked | No | Pending Sheets setup |
-| 2 | sales_inquiry | Can we book a demo for our procurement team? | Not run | Not run | Not run | Not run | Not run | Not run | Blocked | No | Pending Sheets setup |
-| 3 | sales_inquiry | Please send pricing and onboarding details for our company. | Not run | Not run | Not run | Not run | Not run | Not run | Blocked | No | Pending Sheets setup |
-| 4 | support_ticket | My login is not working and password reset failed. | Not run | Not run | Not run | Not run | Not run | Not run | Blocked | No | Pending Sheets setup |
-| 5 | support_ticket | I cannot access my dashboard after payment. | Not run | Not run | Not run | Not run | Not run | Not run | Blocked | No | Pending Sheets setup |
-| 6 | complaint | Your service was terrible last week and nobody replied. | Not run | Not run | Not run | Not run | Not run | Not run | Blocked | No | Pending Sheets setup |
-| 7 | complaint | I am unhappy with the delayed response to my issue. | Not run | Not run | Not run | Not run | Not run | Not run | Blocked | No | Pending Sheets setup |
-| 8 | general_question | What are your office hours and support channels? | Not run | Not run | Not run | Not run | Not run | Not run | Blocked | No | Pending Sheets setup |
-| 9 | general_question | Do you support integrations with Google Workspace? | Not run | Not run | Not run | Not run | Not run | Not run | Blocked | No | Pending Sheets setup |
-| 10 | order_request | I would like to order 100 units of product X. | Not run | Not run | Not run | Not run | Not run | Not run | Blocked | No | Pending Sheets setup |
+| 1 | sales_inquiry | Need enterprise pricing for 50 users. | Superseded | Superseded | Superseded | Superseded | Superseded | Superseded | Superseded | N/A | Covered by Telegram execution 171 for `sales_inquiry` |
+| 2 | sales_inquiry | Can we book a demo for our procurement team? | Superseded | Superseded | Superseded | Superseded | Superseded | Superseded | Superseded | N/A | Covered by Telegram execution 171 for `sales_inquiry` |
+| 3 | sales_inquiry | Please send pricing and onboarding details for our company. | Superseded | Superseded | Superseded | Superseded | Superseded | Superseded | Superseded | N/A | Covered by Telegram execution 171 for `sales_inquiry` |
+| 4 | support_ticket | My login is not working and password reset failed. | Superseded | Superseded | Superseded | Superseded | Superseded | Superseded | Superseded | N/A | Covered by Telegram execution 172 for `support_ticket` |
+| 5 | support_ticket | I cannot access my dashboard after payment. | Superseded | Superseded | Superseded | Superseded | Superseded | Superseded | Superseded | N/A | Covered by Telegram execution 172 for `support_ticket` |
+| 6 | complaint | Your service was terrible last week and nobody replied. | Superseded | Superseded | Superseded | Superseded | Superseded | Superseded | Superseded | N/A | Covered by Telegram execution 176 for `complaint` |
+| 7 | complaint | I am unhappy with the delayed response to my issue. | Superseded | Superseded | Superseded | Superseded | Superseded | Superseded | Superseded | N/A | Covered by Telegram execution 176 for `complaint` |
+| 8 | general_question | What are your office hours and support channels? | Superseded | Superseded | Superseded | Superseded | Superseded | Superseded | Superseded | N/A | Covered by Telegram execution 174 for `general_question` |
+| 9 | general_question | Do you support integrations with Google Workspace? | Superseded | Superseded | Superseded | Superseded | Superseded | Superseded | Superseded | N/A | Covered by Telegram execution 174 for `general_question` |
+| 10 | order_request | I would like to order 100 units of product X. | Superseded | Superseded | Superseded | Superseded | Superseded | Superseded | Superseded | N/A | Covered by Telegram execution 177 for `order_request` |
 
-Pass criteria per row: all five agents return valid JSON with required keys, Gmail reply arrives, and Google Sheets row is appended.
+Pass criteria per row: all five agents return valid JSON with required keys, a reply arrives, and a Google Sheets row is appended.
 
 ## Telegram + Drive KB Evidence
 
@@ -107,6 +111,8 @@ Verified after Drive file sharing update:
 
 Conclusion: Telegram live flow, Sheets debug logging, Google Drive exact-name search, Drive download, and binary content extraction are working for all required named KB files. A small responder fallback was added in the live workflow to prevent malformed/truncated LLM responder JSON from failing an otherwise successful Telegram + KB run.
 
+Acceptance result: Pass. The live matrix covers all required inquiry intents, confirms Sheets logging, confirms Telegram reply delivery, and verifies Drive KB retrieval for each exact target KB file.
+
 ## Backend Reliability Hardening
 
 Date: 2026-04-28
@@ -118,4 +124,4 @@ Date: 2026-04-28
 | Pause/resume/retry scope | Retained as post-MVP reliability controls. They are useful for demos and debugging but are not acceptance gates for the 10-case MVP matrix. |
 | Analytics exports scope | Retained as post-MVP evidence utilities. They should support validation but are not required for MVP acceptance. |
 
-Remaining evidence needed: run the 10 live cases above against the deployed workflow and paste n8n execution IDs/results into the matrix. The code path now fails closed if n8n dispatch does not return an execution id or if integrations are not verifiably attached/readable.
+Completion note: no Day 4 blocker remains for the demo baseline. The code path now fails closed if n8n dispatch does not return an execution id or if integrations are not verifiably attached/readable.

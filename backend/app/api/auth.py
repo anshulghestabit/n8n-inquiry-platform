@@ -4,6 +4,7 @@ from pydantic import BaseModel, EmailStr, Field
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 
 from app.db.client import get_supabase_admin_client, get_supabase_client
+from app.core.config import get_settings
 from app.middleware.auth import get_current_user
 
 
@@ -36,13 +37,17 @@ def api_error(status_code: int, message: str, code: str) -> HTTPException:
 
 
 def set_auth_cookie(response: Response, token: str) -> None:
+    settings = get_settings()
+    cookie_domain = settings.auth_cookie_domain or None
+
     response.set_cookie(
         key=AUTH_COOKIE,
         value=token,
         httponly=True,
-        secure=False,
+        secure=settings.auth_cookie_secure,
         samesite="lax",
         max_age=3600 * 24 * 7,
+        domain=cookie_domain,
     )
 
 
@@ -153,7 +158,8 @@ async def login(data: LoginRequest, response: Response):
 
 @router.post("/logout")
 async def logout(response: Response):
-    response.delete_cookie(AUTH_COOKIE)
+    settings = get_settings()
+    response.delete_cookie(AUTH_COOKIE, domain=settings.auth_cookie_domain or None)
     return {"message": "Logged out"}
 
 

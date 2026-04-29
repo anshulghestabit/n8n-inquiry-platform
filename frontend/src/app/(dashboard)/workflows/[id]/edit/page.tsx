@@ -14,8 +14,9 @@ export default function WorkflowEditPage() {
   const params = useParams<{ id: string }>()
   const [workflow, setWorkflow] = useState<Workflow | null>(null)
   const [error, setError] = useState('')
+  const n8nBaseUrl = process.env.NEXT_PUBLIC_N8N_EDITOR_URL || 'https://n8n.anshul-garg.com'
   const n8nEditorUrl = workflow?.n8n_workflow_id
-    ? `http://localhost:5678/#/workflow/${workflow.n8n_workflow_id}`
+    ? `${n8nBaseUrl}/#/workflow/${workflow.n8n_workflow_id}`
     : ''
 
   useEffect(() => {

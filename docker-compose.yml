@@ -1,6 +1,6 @@
 services:
   n8n:
-    image: n8nio/n8n:2.16.0
+    image: n8nio/n8n:2.18.4
     container_name: n8n
     restart: unless-stopped
     ports:
@@ -16,7 +16,10 @@ services:
       - N8N_NATIVE_PYTHON_RUNNER=true
       - N8N_BLOCK_ENV_ACCESS_IN_NODE=false
       - N8N_AUTH_EXCLUDE_ENDPOINTS=rest/.*
-      - WEBHOOK_URL=http://localhost:5678
+      - WEBHOOK_URL=${WEBHOOK_URL:-https://n8n.anshul-garg.com}
+      - N8N_HOST=${N8N_HOST:-n8n.anshul-garg.com}
+      - N8N_PROTOCOL=${N8N_PROTOCOL:-https}
+      - N8N_EDITOR_BASE_URL=${N8N_EDITOR_BASE_URL:-https://n8n.anshul-garg.com}
       - GENERIC_TIMEZONE=Asia/Kolkata
       - SARVAM_API_KEY=${SARVAM_API_KEY}
       - SARVAM_BASE_URL=${SARVAM_BASE_URL}
@@ -39,7 +42,7 @@ services:
       - app-network
 
   task-runners:
-    image: n8nio/runners:2.16.0
+    image: n8nio/runners:2.18.4
     container_name: n8n-runners
     restart: unless-stopped
     environment:
@@ -51,6 +54,16 @@ services:
       - n8n
     volumes:
       - ./n8n/.n8n:/home/node/.n8n
+    networks:
+      - app-network
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARED_TUNNEL_TOKEN:?Set CLOUDFLARED_TUNNEL_TOKEN in .env}
+    depends_on:
+      - n8n
     networks:
       - app-network
 
@@ -78,6 +91,8 @@ services:
       - SECRET_KEY=${SECRET_KEY}
       - ENVIRONMENT=${ENVIRONMENT}
       - FRONTEND_URL=${FRONTEND_URL}
+      - AUTH_COOKIE_DOMAIN=${AUTH_COOKIE_DOMAIN:-}
+      - AUTH_COOKIE_SECURE=${AUTH_COOKIE_SECURE:-false}
     volumes:
       - ./backend:/app
     depends_on:
@@ -92,7 +107,9 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-/api}
+      - INTERNAL_API_URL=${INTERNAL_API_URL:-http://backend:8000}
+      - NEXT_PUBLIC_N8N_EDITOR_URL=${NEXT_PUBLIC_N8N_EDITOR_URL:-https://n8n.anshul-garg.com}
     volumes:
       - ./frontend:/app
       - /app/node_modules
