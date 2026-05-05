@@ -4,12 +4,22 @@ import { FormEvent, useState } from 'react'
 import { ApiRequestError, apiFetch } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
 
+/**
+ * Renders profile settings backed by the authenticated user's profile row.
+ *
+ * @returns Profile page component.
+ */
 export default function ProfilePage() {
   const { user, refreshUser } = useAuth()
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
+  /**
+   * Saves editable profile fields and refreshes the auth context.
+   *
+   * @param event - Browser form submit event.
+   */
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const formData = new FormData(event.currentTarget)

@@ -4,25 +4,33 @@ import { useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { ApiRequestError, apiFetch } from '@/lib/api'
 
+/** Minimal workflow payload needed to link out to the n8n editor. */
 type Workflow = {
   id: string
   name: string
   n8n_workflow_id?: string | null
 }
 
+/**
+ * Renders a deep link to the cloned n8n workflow editor.
+ *
+ * @returns Workflow editor launcher page component.
+ */
 export default function WorkflowEditPage() {
   const params = useParams<{ id: string }>()
   const [workflow, setWorkflow] = useState<Workflow | null>(null)
-  const [error, setError] = useState('')
-  const n8nBaseUrl = process.env.NEXT_PUBLIC_N8N_EDITOR_URL || 'https://n8n.anshul-garg.com'
+  const [loadError, setLoadError] = useState('')
+  const n8nBaseUrl = process.env.NEXT_PUBLIC_N8N_EDITOR_URL
+  const configError = n8nBaseUrl ? '' : 'NEXT_PUBLIC_N8N_EDITOR_URL is not configured'
+  const error = loadError || configError
   const n8nEditorUrl = workflow?.n8n_workflow_id
-    ? `${n8nBaseUrl}/#/workflow/${workflow.n8n_workflow_id}`
+    ? `${n8nBaseUrl || ''}/#/workflow/${workflow.n8n_workflow_id}`
     : ''
 
   useEffect(() => {
     apiFetch<Workflow>(`/workflows/${params.id}`)
       .then(setWorkflow)
-      .catch((err) => setError(err instanceof ApiRequestError ? err.message : 'Unable to load workflow'))
+      .catch((err) => setLoadError(err instanceof ApiRequestError ? err.message : 'Unable to load workflow'))
   }, [params.id])
 
   return (

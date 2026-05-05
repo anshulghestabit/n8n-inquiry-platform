@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 
+/** Primary dashboard navigation items and their visual markers. */
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', marker: '01' },
   { href: '/workflows', label: 'Workflows', marker: '02' },
@@ -13,6 +14,11 @@ const navItems = [
   { href: '/profile', label: 'Profile', marker: '06' },
 ]
 
+/**
+ * Renders dashboard navigation and the current authenticated user summary.
+ *
+ * @returns Sidebar navigation component.
+ */
 export function Sidebar() {
   const pathname = usePathname()
   const { user, logout, loading } = useAuth()

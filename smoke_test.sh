@@ -1,4 +1,5 @@
 #!/bin/bash
+# Runs a coarse local end-to-end smoke test against the Docker Compose stack.
 set -e
 
 COOKIES=/tmp/smoke_cookies.txt
@@ -11,6 +12,7 @@ pass() { COUNTER=$((COUNTER+1)); PASS=$((PASS+1)); echo "✅"; }
 fail() { COUNTER=$((COUNTER+1)); FAIL=$((FAIL+1)); echo "❌"; }
 
 cleanup() {
+    # Avoid reusing auth cookies across smoke test runs.
     rm -f "$COOKIES"
 }
 trap cleanup EXIT

@@ -1,3 +1,5 @@
+"""System health and integration verification API routes."""
+
 from datetime import UTC, datetime
 from typing import Literal
 
@@ -18,14 +20,18 @@ SOURCE_TYPES: list[SourceType] = ["gmail", "telegram", "google_drive", "google_s
 
 
 class IntegrationActionRequest(BaseModel):
+    """Request body for connect and verify integration actions."""
+
     credential_hint: str = Field(min_length=8, max_length=500)
 
 
 def api_error(status_code: int, message: str, code: str) -> HTTPException:
+    """Builds a normalized system API error."""
     return HTTPException(status_code=status_code, detail={"error": message, "code": code})
 
 
 def get_data_source_map(db, user_id: str) -> dict[str, dict]:
+    """Loads integration state keyed by source type for one user."""
     try:
         sources = (
             db.table("data_sources")
@@ -47,6 +53,7 @@ def get_data_source_map(db, user_id: str) -> dict[str, dict]:
 
 
 def upsert_data_source(db, user_id: str, source_type: SourceType, is_connected: bool, last_verified_at: str | None) -> dict:
+    """Creates or updates a user's integration connection row."""
     payload = {
         "user_id": user_id,
         "source_type": source_type,
@@ -61,6 +68,7 @@ def upsert_data_source(db, user_id: str, source_type: SourceType, is_connected: 
 
 
 async def n8n_request(method: str, path: str) -> dict | list:
+    """Calls the n8n API using the configured API key."""
     if not settings.n8n_api_key:
         raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "n8n API key is not configured", "N8N_UNAVAILABLE")
 
@@ -85,6 +93,7 @@ async def n8n_request(method: str, path: str) -> dict | list:
 
 
 def normalize_rows(payload: dict | list) -> list[dict]:
+    """Normalizes n8n list or object responses into row dictionaries."""
     if isinstance(payload, list):
         return [row for row in payload if isinstance(row, dict)]
     data = payload.get("data") if isinstance(payload, dict) else None
@@ -96,6 +105,7 @@ def normalize_rows(payload: dict | list) -> list[dict]:
 
 
 def credential_refs_from_workflows(workflows: list[dict]) -> dict[str, list[dict]]:
+    """Extracts credential references from n8n workflow node payloads."""
     refs: dict[str, list[dict]] = {source_type: [] for source_type in SOURCE_TYPES}
     credential_map = {
         "gmailOAuth2": "gmail",
@@ -124,6 +134,7 @@ def credential_refs_from_workflows(workflows: list[dict]) -> dict[str, list[dict
 
 
 async def credential_exists(credential_id: str) -> bool:
+    """Checks whether a credential ID is readable from n8n."""
     try:
         await n8n_request("GET", f"/api/v1/credentials/{credential_id}")
         return True
@@ -134,6 +145,7 @@ async def credential_exists(credential_id: str) -> bool:
 
 
 async def verify_telegram_bot() -> dict:
+    """Verifies the configured Telegram bot token with Telegram's API."""
     if not settings.telegram_bot_token:
         raise api_error(status.HTTP_400_BAD_REQUEST, "TELEGRAM_BOT_TOKEN is not configured", "INTEGRATION_VERIFY_FAILED")
 
@@ -155,6 +167,7 @@ async def verify_telegram_bot() -> dict:
 
 
 async def verify_integration_connection(source_type: SourceType) -> dict:
+    """Verifies that a source type has readable n8n credentials."""
     workflows = normalize_rows(await n8n_request("GET", "/api/v1/workflows"))
     refs = credential_refs_from_workflows(workflows).get(source_type, [])
     if not refs:
@@ -196,6 +209,7 @@ async def verify_integration_connection(source_type: SourceType) -> dict:
 
 @router.get("/status")
 async def system_status(current_user: dict = Depends(get_current_user)):
+    """Returns live service and integration status for the current user."""
     connection_status = {
         "n8n": False,
         "gmail": False,
@@ -228,6 +242,7 @@ async def system_status(current_user: dict = Depends(get_current_user)):
 
 @router.get("/integrations")
 async def list_integrations(current_user: dict = Depends(get_current_user)):
+    """Lists integration connection states for the current user."""
     db = get_supabase_admin_client()
     sources = get_data_source_map(db, current_user["id"])
 
@@ -247,6 +262,7 @@ async def connect_integration(
     body: IntegrationActionRequest,
     current_user: dict = Depends(get_current_user),
 ):
+    """Connects and verifies an integration for the current user."""
     db = get_supabase_admin_client()
     verification = await verify_integration_connection(source_type)
     verified_at = datetime.now(UTC).isoformat()
@@ -266,6 +282,7 @@ async def verify_integration(
     body: IntegrationActionRequest,
     current_user: dict = Depends(get_current_user),
 ):
+    """Re-verifies an already connected integration."""
     db = get_supabase_admin_client()
     sources = get_data_source_map(db, current_user["id"])
     source = sources.get(source_type)
@@ -286,6 +303,7 @@ async def verify_integration(
 
 @router.post("/integrations/{source_type}/disconnect")
 async def disconnect_integration(source_type: SourceType, current_user: dict = Depends(get_current_user)):
+    """Marks an integration disconnected for the current user."""
     db = get_supabase_admin_client()
     row = upsert_data_source(db, current_user["id"], source_type, False, None)
     return {

@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import { FormEvent, useEffect, useState } from 'react'
 import { ApiRequestError, apiFetch } from '@/lib/api'
 
+/** Agent configuration embedded in a workflow detail response. */
 type Agent = {
   id: string
   name: string
@@ -13,6 +14,7 @@ type Agent = {
   order_index: number
 }
 
+/** Workflow detail payload returned by `/workflows/{id}`. */
 type Workflow = {
   id: string
   name: string
@@ -23,6 +25,7 @@ type Workflow = {
   agents: Agent[]
 }
 
+/** Agent trace event returned while polling an execution. */
 type AgentLog = {
   id?: string
   agent_role: string
@@ -32,6 +35,7 @@ type AgentLog = {
   error_message?: string | null
 }
 
+/** Current execution status and trace used by live polling. */
 type ExecutionStatus = {
   id: string
   status: 'running' | 'paused' | 'success' | 'failed' | 'cancelled'
@@ -40,6 +44,7 @@ type ExecutionStatus = {
   trace: AgentLog[]
 }
 
+/** Human-readable labels for workflow agent roles. */
 const roleLabels: Record<string, string> = {
   classifier: 'Classifier',
   researcher: 'Researcher',
@@ -48,6 +53,11 @@ const roleLabels: Record<string, string> = {
   executor: 'Executor',
 }
 
+/**
+ * Renders workflow detail, live test execution, and trace controls.
+ *
+ * @returns Workflow detail page component.
+ */
 export default function WorkflowDetailPage() {
   const params = useParams<{ id: string }>()
   const [workflow, setWorkflow] = useState<Workflow | null>(null)

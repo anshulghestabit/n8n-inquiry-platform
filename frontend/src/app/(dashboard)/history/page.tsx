@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { ApiRequestError, API_BASE_URL, apiFetch } from '@/lib/api'
 
+/** Execution list item returned by the history endpoint. */
 type Execution = {
   id: string
   source_channel: string
@@ -17,10 +18,21 @@ type Execution = {
 const statusOptions = ['all', 'running', 'paused', 'success', 'failed', 'cancelled'] as const
 const channelOptions = ['all', 'gmail', 'telegram', 'test'] as const
 
+/**
+ * Formats an ISO timestamp for display in the user's locale.
+ *
+ * @param value - ISO timestamp returned by the backend.
+ * @returns Locale-aware date/time string.
+ */
 function formatDate(value: string): string {
   return new Date(value).toLocaleString()
 }
 
+/**
+ * Renders the filterable execution history table.
+ *
+ * @returns Execution history page component.
+ */
 export default function HistoryPage() {
   const [items, setItems] = useState<Execution[]>([])
   const [statusFilter, setStatusFilter] = useState<(typeof statusOptions)[number]>('all')

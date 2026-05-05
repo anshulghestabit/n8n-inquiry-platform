@@ -1,5 +1,8 @@
 -- Make Supabase auth signup resilient by moving profile/data_sources creation to FastAPI.
 --
+-- This keeps the trigger installed for compatibility while ensuring it cannot
+-- block Supabase Auth user creation.
+--
 -- Why this exists:
 -- Supabase returns "Database error creating new user" whenever the auth.users
 -- trigger fails. That hides the real DB error and blocks registration entirely.

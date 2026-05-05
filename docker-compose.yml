@@ -1,4 +1,6 @@
+# Local development stack for n8n, FastAPI, Next.js, and Cloudflare Tunnel.
 services:
+  # n8n hosts the workflow editor, triggers, and agent orchestration graph.
   n8n:
     image: n8nio/n8n:2.18.5
     container_name: n8n
@@ -20,6 +22,7 @@ services:
       - N8N_HOST=${N8N_HOST:-n8n.anshul-garg.com}
       - N8N_PROTOCOL=${N8N_PROTOCOL:-https}
       - N8N_EDITOR_BASE_URL=${N8N_EDITOR_BASE_URL:-https://n8n.anshul-garg.com}
+      - N8N_PROXY_HOPS=1
       - GENERIC_TIMEZONE=Asia/Kolkata
       - SARVAM_API_KEY=${SARVAM_API_KEY}
       - SARVAM_BASE_URL=${SARVAM_BASE_URL}
@@ -41,6 +44,7 @@ services:
     networks:
       - app-network
 
+  # External n8n task runners execute code-heavy workflow nodes outside n8n.
   task-runners:
     image: n8nio/runners:2.18.5
     container_name: n8n-runners
@@ -57,6 +61,7 @@ services:
     networks:
       - app-network
 
+  # Cloudflare Tunnel exposes stable public hostnames for n8n callbacks.
   cloudflared:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared
@@ -67,6 +72,7 @@ services:
     networks:
       - app-network
 
+  # FastAPI validates auth, owns Supabase access, and proxies n8n operations.
   backend:
     build: ./backend
     container_name: fastapi
@@ -82,6 +88,8 @@ services:
       - LM_STUDIO_MODEL=${LM_STUDIO_MODEL}
       - N8N_URL=${N8N_URL}
       - N8N_API_KEY=${N8N_API_KEY}
+      - N8N_CALLBACK_SECRET=${N8N_CALLBACK_SECRET:-}
+      - DEMO_SHARED_N8N_WORKFLOW_ID=${DEMO_SHARED_N8N_WORKFLOW_ID:-}
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
       - TELEGRAM_WEBHOOK_SECRET=${TELEGRAM_WEBHOOK_SECRET:-}
       - SUPABASE_URL=${SUPABASE_URL}
@@ -100,6 +108,7 @@ services:
     networks:
       - app-network
 
+  # Next.js serves the authenticated dashboard and same-origin API proxy.
   frontend:
     build: ./frontend
     container_name: nextjs
@@ -120,5 +129,6 @@ services:
       - app-network
 
 networks:
+  # Shared bridge network lets services call each other by compose service name.
   app-network:
     driver: bridge

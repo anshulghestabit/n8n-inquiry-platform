@@ -1,3 +1,5 @@
+"""PDF export rendering helpers for execution reports."""
+
 from io import BytesIO
 
 from reportlab.lib import colors
@@ -7,6 +9,15 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, Tabl
 
 
 def render_execution_pdf(execution: dict, agent_logs: list[dict]) -> bytes:
+    """Renders one execution and its agent trace as PDF bytes.
+
+    Args:
+        execution: Execution row from Supabase.
+        agent_logs: Ordered agent log rows.
+
+    Returns:
+        Binary PDF document.
+    """
     buffer = BytesIO()
     document = SimpleDocTemplate(buffer, pagesize=letter)
     styles = getSampleStyleSheet()

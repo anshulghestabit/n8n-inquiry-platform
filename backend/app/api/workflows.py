@@ -1,3 +1,5 @@
+"""Workflow CRUD and n8n synchronization API routes."""
+
 import json
 import logging
 from pathlib import Path
@@ -19,6 +21,11 @@ logger = logging.getLogger(__name__)
 
 TEMPLATE_PATH = Path(__file__).resolve().parents[2] / "templates" / "inquiry_workflow.json"
 N8N_MUTABLE_KEYS = {"name", "nodes", "connections", "settings"}
+N8N_SETTINGS_ALLOWED_KEYS = {
+    "executionOrder", "saveDataErrorExecution", "saveDataSuccessExecution",
+    "saveManualExecutions", "saveExecutionProgress", "executionTimeout",
+    "timezone", "callerPolicy", "callerIds", "errorWorkflow",
+}
 
 AgentRole = Literal["classifier", "researcher", "qualifier", "responder", "executor"]
 TriggerChannel = Literal["gmail", "telegram", "both"]
@@ -92,12 +99,16 @@ LEGACY_SYSTEM_PROMPTS = {
 
 
 class WorkflowCreateRequest(BaseModel):
+    """Request body for creating a user-owned workflow."""
+
     name: str = Field(min_length=1, max_length=120)
     description: str = ""
     trigger_channel: TriggerChannel = "both"
 
 
 class WorkflowUpdateRequest(BaseModel):
+    """Request body for mutable workflow metadata."""
+
     name: str | None = Field(default=None, min_length=1, max_length=120)
     description: str | None = None
     trigger_channel: TriggerChannel | None = None
@@ -105,6 +116,8 @@ class WorkflowUpdateRequest(BaseModel):
 
 
 class AgentUpdateRequest(BaseModel):
+    """Request body for updating an agent prompt and n8n node."""
+
     system_prompt: str = Field(min_length=1)
     tools: list[str] | None = None
     handoff_rules: str | None = None
@@ -112,16 +125,27 @@ class AgentUpdateRequest(BaseModel):
 
 
 def api_error(status_code: int, message: str, code: str) -> HTTPException:
+    """Builds a normalized workflow API error."""
     return HTTPException(status_code=status_code, detail={"error": message, "code": code})
 
 
 def n8n_headers() -> dict[str, str]:
+    """Returns authentication headers for n8n API requests."""
     if not settings.n8n_api_key:
         raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "n8n API key is not configured", "N8N_UNAVAILABLE")
     return {"X-N8N-API-KEY": settings.n8n_api_key}
 
 
 def clone_workflow_template(name: str, trigger_channel: TriggerChannel) -> dict:
+    """Clones the checked-in n8n template and configures trigger nodes.
+
+    Args:
+        name: Workflow name to apply to the cloned n8n workflow.
+        trigger_channel: Enabled source channel mode.
+
+    Returns:
+        Mutable n8n workflow payload ready to create through the n8n API.
+    """
     try:
         with TEMPLATE_PATH.open() as template_file:
             workflow = json.load(template_file)
@@ -180,10 +204,15 @@ def clone_workflow_template(name: str, trigger_channel: TriggerChannel) -> dict:
 
 
 def sanitize_n8n_workflow_payload(workflow: dict) -> dict:
-    return {key: workflow[key] for key in N8N_MUTABLE_KEYS if key in workflow}
+    """Keeps only n8n fields accepted by create and update endpoints."""
+    payload = {key: workflow[key] for key in N8N_MUTABLE_KEYS if key in workflow}
+    if isinstance(payload.get("settings"), dict):
+        payload["settings"] = {k: v for k, v in payload["settings"].items() if k in N8N_SETTINGS_ALLOWED_KEYS}
+    return payload
 
 
 async def n8n_request(method: str, path: str, payload: dict | None = None) -> dict:
+    """Calls the n8n API and converts failures into API errors."""
     try:
         async with httpx.AsyncClient() as client:
             response = await client.request(
@@ -210,14 +239,17 @@ async def n8n_request(method: str, path: str, payload: dict | None = None) -> di
 
 
 async def create_n8n_workflow(workflow: dict) -> dict:
+    """Creates an n8n workflow from a sanitized template payload."""
     return await n8n_request("POST", "/api/v1/workflows", sanitize_n8n_workflow_payload(workflow))
 
 
 async def get_n8n_workflow(n8n_workflow_id: str) -> dict:
+    """Loads an n8n workflow by ID."""
     return await n8n_request("GET", f"/api/v1/workflows/{n8n_workflow_id}")
 
 
 async def update_n8n_workflow(n8n_workflow_id: str, workflow: dict) -> dict:
+    """Updates mutable n8n workflow fields."""
     return await n8n_request(
         "PUT",
         f"/api/v1/workflows/{n8n_workflow_id}",
@@ -226,14 +258,17 @@ async def update_n8n_workflow(n8n_workflow_id: str, workflow: dict) -> dict:
 
 
 async def delete_n8n_workflow(n8n_workflow_id: str) -> None:
+    """Deletes an n8n workflow by ID."""
     await n8n_request("DELETE", f"/api/v1/workflows/{n8n_workflow_id}")
 
 
 def agent_rows(workflow_id: str) -> list[dict]:
+    """Builds default Supabase agent rows for a workflow."""
     return [{**agent, "workflow_id": workflow_id} for agent in DEFAULT_AGENTS]
 
 
 def backfill_legacy_agent_prompts(db, agents: list[dict]) -> list[dict]:
+    """Updates older agent rows to the current prompt template."""
     updated_agents = []
     for agent in agents:
         role = agent.get("role")
@@ -256,6 +291,7 @@ def backfill_legacy_agent_prompts(db, agents: list[dict]) -> list[dict]:
 
 
 def replace_system_prompt(node: dict, system_prompt: str) -> bool:
+    """Replaces a system prompt inside an n8n agent node payload."""
     parameters = node.setdefault("parameters", {})
 
     if isinstance(parameters.get("jsonBody"), str):
@@ -293,6 +329,7 @@ def replace_system_prompt(node: dict, system_prompt: str) -> bool:
 
 
 async def sync_agent_to_n8n(n8n_workflow_id: str, agent_role: AgentRole, system_prompt: str) -> None:
+    """Synchronizes one agent prompt from Supabase into n8n."""
     workflow = await get_n8n_workflow(n8n_workflow_id)
     node_name = ROLE_TO_NODE[agent_role]
     for node in workflow.get("nodes", []):
@@ -310,6 +347,7 @@ async def sync_agent_to_n8n(n8n_workflow_id: str, agent_role: AgentRole, system_
 
 
 def get_owned_workflow(db, workflow_id: str, user_id: str) -> dict:
+    """Returns a workflow only when it belongs to the current user."""
     try:
         result = db.table("workflows").select("*").eq("id", workflow_id).eq("user_id", user_id).single().execute()
     except Exception:
@@ -321,11 +359,21 @@ def get_owned_workflow(db, workflow_id: str, user_id: str) -> dict:
 
 @router.post("/workflows", status_code=status.HTTP_201_CREATED)
 async def create_workflow(data: WorkflowCreateRequest, current_user: dict = Depends(get_current_user)):
+    """Creates a Supabase workflow, n8n clone, and default agent rows."""
     db = get_supabase_admin_client()
-    workflow_template = clone_workflow_template(data.name, data.trigger_channel)
-    test_webhook_path = workflow_template.get("_test_webhook_path")
-    n8n_workflow = await create_n8n_workflow(workflow_template)
-    n8n_workflow_id = str(n8n_workflow.get("id", ""))
+    use_shared_workflow = bool(settings.demo_shared_n8n_workflow_id)
+    test_webhook_path = None
+    n8n_workflow_id = ""
+
+    if use_shared_workflow:
+        n8n_workflow_id = settings.demo_shared_n8n_workflow_id.strip()
+        await get_n8n_workflow(n8n_workflow_id)
+    else:
+        workflow_template = clone_workflow_template(data.name, data.trigger_channel)
+        test_webhook_path = workflow_template.get("_test_webhook_path")
+        n8n_workflow = await create_n8n_workflow(workflow_template)
+        n8n_workflow_id = str(n8n_workflow.get("id", ""))
+
     workflow_id = None
 
     try:
@@ -356,7 +404,7 @@ async def create_workflow(data: WorkflowCreateRequest, current_user: dict = Depe
                 db.table("workflows").delete().eq("id", workflow_id).execute()
             except Exception:
                 logger.exception("Failed to rollback workflow record")
-        if n8n_workflow_id:
+        if n8n_workflow_id and not use_shared_workflow:
             try:
                 await delete_n8n_workflow(n8n_workflow_id)
             except Exception:
@@ -368,6 +416,7 @@ async def create_workflow(data: WorkflowCreateRequest, current_user: dict = Depe
 
 @router.get("/workflows")
 async def list_workflows(current_user: dict = Depends(get_current_user)):
+    """Lists workflows owned by the authenticated user."""
     db = get_supabase_admin_client()
     try:
         result = (
@@ -384,6 +433,7 @@ async def list_workflows(current_user: dict = Depends(get_current_user)):
 
 @router.get("/workflows/{workflow_id}")
 async def get_workflow(workflow_id: str, current_user: dict = Depends(get_current_user)):
+    """Returns one workflow with its ordered agent configuration."""
     db = get_supabase_admin_client()
     workflow = get_owned_workflow(db, workflow_id, current_user["id"])
     try:
@@ -399,6 +449,7 @@ async def update_workflow(
     data: WorkflowUpdateRequest,
     current_user: dict = Depends(get_current_user),
 ):
+    """Updates user-owned workflow metadata."""
     db = get_supabase_admin_client()
     workflow = get_owned_workflow(db, workflow_id, current_user["id"])
     update_data = data.model_dump(exclude_none=True)
@@ -421,9 +472,14 @@ async def update_workflow(
 
 @router.delete("/workflows/{workflow_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_workflow(workflow_id: str, current_user: dict = Depends(get_current_user)):
+    """Deletes a user-owned workflow and its linked n8n workflow."""
     db = get_supabase_admin_client()
     workflow = get_owned_workflow(db, workflow_id, current_user["id"])
-    if workflow.get("n8n_workflow_id"):
+    is_shared_demo_workflow = (
+        bool(settings.demo_shared_n8n_workflow_id)
+        and str(workflow.get("n8n_workflow_id", "")).strip() == settings.demo_shared_n8n_workflow_id.strip()
+    )
+    if workflow.get("n8n_workflow_id") and not is_shared_demo_workflow:
         await delete_n8n_workflow(workflow["n8n_workflow_id"])
     try:
         db.table("workflows").delete().eq("id", workflow_id).execute()
@@ -433,6 +489,7 @@ async def delete_workflow(workflow_id: str, current_user: dict = Depends(get_cur
 
 @router.get("/workflows/{workflow_id}/agents")
 async def list_agents(workflow_id: str, current_user: dict = Depends(get_current_user)):
+    """Lists ordered agents for a user-owned workflow."""
     db = get_supabase_admin_client()
     get_owned_workflow(db, workflow_id, current_user["id"])
     try:
@@ -451,6 +508,7 @@ async def update_agent(
     data: AgentUpdateRequest,
     current_user: dict = Depends(get_current_user),
 ):
+    """Updates an agent row and mirrors the prompt to n8n."""
     db = get_supabase_admin_client()
     try:
         agent_result = db.table("agents").select("*").eq("id", agent_id).single().execute()

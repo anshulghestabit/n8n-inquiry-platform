@@ -1,3 +1,5 @@
+"""Analytics API routes for execution summaries, trends, and exports."""
+
 from collections import defaultdict
 from datetime import datetime
 import logging
@@ -19,14 +21,17 @@ AGENT_ROLES = ["classifier", "researcher", "qualifier", "responder", "executor"]
 
 
 def api_error(status_code: int, message: str, code: str) -> HTTPException:
+    """Builds a normalized analytics API error."""
     return HTTPException(status_code=status_code, detail={"error": message, "code": code})
 
 
 def _safe_average(values: list[float]) -> float:
+    """Returns an average while treating empty lists as zero."""
     return (sum(values) / len(values)) if values else 0.0
 
 
 def _safe_float(value) -> float | None:
+    """Converts numeric-like values to float without raising."""
     try:
         return float(value) if value is not None else None
     except (TypeError, ValueError):
@@ -35,6 +40,7 @@ def _safe_float(value) -> float | None:
 
 @router.get("/analytics/summary")
 async def analytics_summary(current_user: dict = Depends(get_current_user)):
+    """Returns aggregate execution and quality metrics for the current user."""
     db = get_supabase_admin_client()
     try:
         result = db.table("executions").select("status,duration_ms,score,scorecard_detail").eq("user_id", current_user["id"]).execute()
@@ -69,6 +75,7 @@ async def analytics_summary(current_user: dict = Depends(get_current_user)):
 
 @router.get("/analytics/chart")
 async def analytics_chart(current_user: dict = Depends(get_current_user)):
+    """Returns daily execution counts and successes for chart rendering."""
     db = get_supabase_admin_client()
     try:
         result = db.table("executions").select("status,started_at").eq("user_id", current_user["id"]).order("started_at").execute()
@@ -95,6 +102,7 @@ async def analytics_chart(current_user: dict = Depends(get_current_user)):
 
 @router.get("/analytics/agents")
 async def analytics_agents(current_user: dict = Depends(get_current_user)):
+    """Returns per-agent duration, reliability, and bottleneck metrics."""
     db = get_supabase_admin_client()
     try:
         execution_rows = db.table("executions").select("id,duration_ms,scorecard_detail").eq("user_id", current_user["id"]).execute().data or []
@@ -173,6 +181,7 @@ async def export_analytics(
     format: ExportFormat = Query(default="csv"),
     current_user: dict = Depends(get_current_user),
 ):
+    """Exports execution analytics as CSV or PDF."""
     db = get_supabase_admin_client()
     try:
         executions = (

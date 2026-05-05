@@ -5,6 +5,11 @@ import { FormEvent, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ApiRequestError, apiFetch } from '@/lib/api'
 
+/**
+ * Renders the account registration form for new workspace users.
+ *
+ * @returns Registration page component.
+ */
 export default function RegisterPage() {
   const router = useRouter()
   const [fullName, setFullName] = useState('')
@@ -13,6 +18,11 @@ export default function RegisterPage() {
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
+  /**
+   * Creates a Supabase-backed account through the FastAPI auth endpoint.
+   *
+   * @param event - Browser form submit event.
+   */
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setSubmitting(true)

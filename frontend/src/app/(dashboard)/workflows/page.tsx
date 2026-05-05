@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { FormEvent, useEffect, useState } from 'react'
 import { ApiRequestError, apiFetch } from '@/lib/api'
 
+/** Workflow row returned by the workflow list endpoint. */
 type Workflow = {
   id: string
   name: string
@@ -13,6 +14,11 @@ type Workflow = {
   n8n_workflow_id?: string | null
 }
 
+/**
+ * Renders workflow creation, listing, and deletion controls.
+ *
+ * @returns Workflows page component.
+ */
 export default function WorkflowsPage() {
   const [workflows, setWorkflows] = useState<Workflow[]>([])
   const [loading, setLoading] = useState(true)
@@ -20,6 +26,7 @@ export default function WorkflowsPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [error, setError] = useState('')
 
+  /** Reloads the current user's workflows after create or delete actions. */
   async function loadWorkflows() {
     try {
       const data = await apiFetch<Workflow[]>('/workflows')
@@ -55,6 +62,11 @@ export default function WorkflowsPage() {
     }
   }, [])
 
+  /**
+   * Creates a workflow from the form values and refreshes the list.
+   *
+   * @param event - Browser form submit event.
+   */
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const form = event.currentTarget
@@ -80,6 +92,11 @@ export default function WorkflowsPage() {
     }
   }
 
+  /**
+   * Deletes a workflow after user confirmation.
+   *
+   * @param workflow - Workflow selected for deletion.
+   */
   async function handleDelete(workflow: Workflow) {
     const confirmed = window.confirm(`Delete workflow "${workflow.name}"? This also removes the linked n8n workflow.`)
     if (!confirmed) {

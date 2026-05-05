@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { apiFetch } from './api'
 
+/** Authenticated profile returned by `/auth/me` and shared across dashboard UI. */
 export type UserProfile = {
   id: string
   email: string
@@ -10,6 +11,7 @@ export type UserProfile = {
   avatar_url?: string | null
 }
 
+/** Values exposed by the app-wide authentication provider. */
 type AuthContextValue = {
   user: UserProfile | null
   loading: boolean
@@ -19,10 +21,18 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
+/**
+ * Provides current-user state and auth actions to all client components.
+ *
+ * @param props - Provider props.
+ * @param props.children - React subtree that needs authentication context.
+ * @returns React provider wrapping the supplied children.
+ */
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
 
+  /** Reloads the current profile after login, refresh, or profile update. */
   async function refreshUser() {
     try {
       const profile = await apiFetch<UserProfile>('/auth/me')
@@ -34,6 +44,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  /** Clears the backend session and returns the browser to the login screen. */
   async function logout() {
     try {
       await apiFetch<{ message: string }>('/auth/logout', { method: 'POST' })
@@ -78,6 +89,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   )
 }
 
+/**
+ * Reads the authentication context for client components.
+ *
+ * @returns Current auth state and auth actions.
+ * @throws {Error} When used outside `AuthProvider`.
+ */
 export function useAuth() {
   const context = useContext(AuthContext)
   if (!context) {

@@ -1,6 +1,8 @@
 -- Emergency fix for Supabase Auth error:
 --   "Database error creating new user"
 --
+-- This script is safe to run repeatedly because it only drops the named trigger.
+--
 -- The FastAPI backend now creates public.profiles and public.data_sources after
 -- Supabase Auth creates the user. Therefore the custom auth.users trigger is no
 -- longer required, and removing it prevents trigger failures from blocking signup.

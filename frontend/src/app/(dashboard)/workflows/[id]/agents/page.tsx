@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { ApiRequestError, apiFetch } from '@/lib/api'
 
+/** Editable agent configuration returned by the workflow agent endpoint. */
 type Agent = {
   id: string
   name: string
@@ -12,12 +13,18 @@ type Agent = {
   order_index: number
 }
 
+/**
+ * Renders editable system prompts for each agent in a workflow chain.
+ *
+ * @returns Agent configuration page component.
+ */
 export default function WorkflowAgentsPage() {
   const params = useParams<{ id: string }>()
   const [agents, setAgents] = useState<Agent[]>([])
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
 
+  /** Reloads agent rows after prompt updates. */
   async function loadAgents() {
     try {
       const data = await apiFetch<Agent[]>(`/workflows/${params.id}/agents`)
@@ -46,6 +53,12 @@ export default function WorkflowAgentsPage() {
     }
   }, [params.id])
 
+  /**
+   * Persists an agent prompt and synchronizes the matching n8n node.
+   *
+   * @param event - Browser form submit event.
+   * @param agentId - Supabase agent row identifier.
+   */
   async function handleSave(event: FormEvent<HTMLFormElement>, agentId: string) {
     event.preventDefault()
     const formData = new FormData(event.currentTarget)

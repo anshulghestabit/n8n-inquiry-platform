@@ -3,14 +3,17 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ApiRequestError, apiFetch } from '@/lib/api'
 
+/** Supported external data and messaging integrations. */
 type SourceType = 'gmail' | 'telegram' | 'google_drive' | 'google_sheets'
 
+/** Integration connection state returned by the backend. */
 type Integration = {
   source_type: SourceType
   is_connected: boolean
   last_verified_at?: string | null
 }
 
+/** Display metadata for integration cards. */
 const labels: Record<SourceType, { name: string; description: string }> = {
   gmail: { name: 'Gmail', description: 'Verifies an attached n8n Gmail OAuth credential for replies and triggers.' },
   google_sheets: { name: 'Google Sheets', description: 'Verifies an attached n8n Sheets credential and configured sheet id.' },
@@ -18,12 +21,18 @@ const labels: Record<SourceType, { name: string; description: string }> = {
   telegram: { name: 'Telegram', description: 'Verifies the Telegram bot token and attached n8n Telegram credential.' },
 }
 
+/** Past-tense action copy used in success messages. */
 const actionVerb: Record<'connect' | 'verify' | 'disconnect', string> = {
   connect: 'connected',
   verify: 'verified',
   disconnect: 'disconnected',
 }
 
+/**
+ * Renders integration connection, verification, and disconnect controls.
+ *
+ * @returns Integrations settings page component.
+ */
 export default function IntegrationsPage() {
   const [items, setItems] = useState<Integration[]>([])
   const [credentialHint, setCredentialHint] = useState<Record<SourceType, string>>({
@@ -48,6 +57,7 @@ export default function IntegrationsPage() {
     }, {} as Record<SourceType, Integration>)
   }, [items])
 
+  /** Reloads integration state after a mutation. */
   async function loadIntegrations() {
     const data = await apiFetch<Integration[]>('/system/integrations')
     setItems(data)
@@ -73,6 +83,12 @@ export default function IntegrationsPage() {
     }
   }, [])
 
+  /**
+   * Runs an integration action against the backend and refreshes state.
+   *
+   * @param sourceType - Integration source being changed.
+   * @param action - Backend action to execute for the source.
+   */
   async function runAction(sourceType: SourceType, action: 'connect' | 'verify' | 'disconnect') {
     setError('')
     setMessage('')

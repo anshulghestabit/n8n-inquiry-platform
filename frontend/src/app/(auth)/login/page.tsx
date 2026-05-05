@@ -4,14 +4,26 @@ import Link from 'next/link'
 import { FormEvent, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ApiRequestError, apiFetch } from '@/lib/api'
+import { useAuth } from '@/lib/auth-context'
 
+/**
+ * Renders the sign-in form and refreshes shared auth state after login.
+ *
+ * @returns Login page component.
+ */
 export default function LoginPage() {
   const router = useRouter()
+  const { refreshUser } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
+  /**
+   * Submits credentials to the backend and enters the dashboard session.
+   *
+   * @param event - Browser form submit event.
+   */
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setSubmitting(true)
@@ -22,6 +34,7 @@ export default function LoginPage() {
         method: 'POST',
         body: JSON.stringify({ email, password }),
       })
+      await refreshUser()
       router.push('/dashboard')
       router.refresh()
     } catch (err) {

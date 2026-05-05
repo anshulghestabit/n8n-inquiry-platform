@@ -1,5 +1,7 @@
 -- Fix registration failures after switching the optional second channel from WhatsApp to Telegram.
 --
+-- This migration normalizes legacy enum-like CHECK constraints and seed data.
+--
 -- Symptom in FastAPI /auth/register:
 --   AuthApiError: Database error creating new user
 --

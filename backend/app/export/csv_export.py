@@ -1,9 +1,19 @@
+"""CSV export rendering helpers for execution data."""
+
 from io import StringIO
 
 import pandas as pd
 
 
 def render_executions_csv(executions: list[dict]) -> str:
+    """Renders execution rows as CSV text.
+
+    Args:
+        executions: Execution rows returned from Supabase.
+
+    Returns:
+        CSV document as a string.
+    """
     if not executions:
         columns = [
             "id",

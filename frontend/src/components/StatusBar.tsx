@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { apiFetch } from '@/lib/api'
 
+/** Integration health booleans returned by `/system/status`. */
 type SystemStatus = {
   n8n: boolean
   gmail: boolean
@@ -11,6 +12,7 @@ type SystemStatus = {
   google_sheets: boolean
 }
 
+/** Ordered status chips shown in the dashboard header. */
 const labels: Array<[keyof SystemStatus, string]> = [
   ['n8n', 'n8n'],
   ['gmail', 'Gmail'],
@@ -19,6 +21,11 @@ const labels: Array<[keyof SystemStatus, string]> = [
   ['telegram', 'Telegram'],
 ]
 
+/**
+ * Polls backend health status and renders integration connectivity chips.
+ *
+ * @returns Dashboard status bar component.
+ */
 export function StatusBar() {
   const [status, setStatus] = useState<SystemStatus | null>(null)
   const [error, setError] = useState(false)

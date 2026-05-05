@@ -1,3 +1,5 @@
+"""Plain-text execution report rendering helpers."""
+
 from datetime import datetime
 
 
@@ -11,6 +13,14 @@ ROLE_LABELS = {
 
 
 def _format_time(value: str | None) -> str:
+    """Formats an ISO timestamp for text exports.
+
+    Args:
+        value: Optional ISO timestamp.
+
+    Returns:
+        Human-readable timestamp or `-` when absent.
+    """
     if not value:
         return "-"
     try:
@@ -21,6 +31,15 @@ def _format_time(value: str | None) -> str:
 
 
 def render_execution_report(execution: dict, agent_logs: list[dict]) -> str:
+    """Renders one execution and its agent trace as a text report.
+
+    Args:
+        execution: Execution row from Supabase.
+        agent_logs: Ordered agent log rows.
+
+    Returns:
+        Newline-terminated text report.
+    """
     lines = [
         "n8n Inquiry Platform - Execution Report",
         "=" * 44,

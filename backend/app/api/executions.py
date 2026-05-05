@@ -1,10 +1,12 @@
+"""Execution lifecycle, trace synchronization, and export API routes."""
+
 import asyncio
 import logging
 from datetime import UTC, datetime
 from typing import Literal
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response, status
 from pydantic import BaseModel, Field
 
 from app.core.config import get_settings
@@ -45,30 +47,49 @@ N8N_TO_APP_STATUS = {
 
 NODE_TO_AGENT = {
     "Classifier_Agent": "classifier",
+    "Classifier_Agent1": "classifier",
     "Researcher_Agent": "researcher",
+    "Researcher_Agent1": "researcher",
     "Qualifier_Agent": "qualifier",
+    "Qualifier_Agent1": "qualifier",
     "Responder_Agent": "responder",
+    "Responder_Agent1": "responder",
     "Executor_Agent": "executor",
+    "Executor_Agent1": "executor",
 }
 
 AGENT_OUTPUT_NODES = {
     "Classifier_JSON": "classifier",
+    "Extract Classifier JSON": "classifier",
     "Researcher_JSON": "researcher",
+    "Extract Researcher JSON": "researcher",
     "Qualifier_JSON": "qualifier",
+    "Extract Qualifier JSON": "qualifier",
     "Responder_JSON": "responder",
+    "Extract Responder JSON": "responder",
     "Executor_JSON": "executor",
+    "Extract Executor JSON": "executor",
 }
 TEST_WEBHOOK_NODE = "Browser Test Webhook"
 N8N_MUTABLE_KEYS = {"name", "nodes", "connections", "settings"}
+N8N_SETTINGS_ALLOWED_KEYS = {
+    "executionOrder", "saveDataErrorExecution", "saveDataSuccessExecution",
+    "saveManualExecutions", "saveExecutionProgress", "executionTimeout",
+    "timezone", "callerPolicy", "callerIds", "errorWorkflow",
+}
 
 
 class TriggerExecutionRequest(BaseModel):
+    """Request body for starting a workflow test execution."""
+
     inquiry_text: str = Field(min_length=1, max_length=6000)
     source_channel: SourceChannel = "test"
     sender_id: str | None = None
 
 
 class AgentLogPayload(BaseModel):
+    """Agent trace payload accepted from n8n or manual callbacks."""
+
     agent_role: AgentRole
     input: dict | None = None
     output: dict | None = None
@@ -78,6 +99,8 @@ class AgentLogPayload(BaseModel):
 
 
 class CompleteExecutionRequest(BaseModel):
+    """Request body for marking an execution complete from callbacks."""
+
     status: Literal["success", "failed", "cancelled"]
     final_reply: str | None = None
     score: int | None = Field(default=None, ge=1, le=10)
@@ -87,14 +110,18 @@ class CompleteExecutionRequest(BaseModel):
 
 
 class AppendAgentLogsRequest(BaseModel):
+    """Request body for appending agent logs to an execution."""
+
     agent_logs: list[AgentLogPayload] = Field(default_factory=list)
 
 
 def api_error(status_code: int, message: str, code: str) -> HTTPException:
+    """Builds a normalized execution API error."""
     return HTTPException(status_code=status_code, detail={"error": message, "code": code})
 
 
 def get_owned_workflow(db, workflow_id: str, user_id: str) -> dict:
+    """Returns a workflow only when it belongs to the current user."""
     try:
         result = db.table("workflows").select("*").eq("id", workflow_id).eq("user_id", user_id).single().execute()
     except Exception:
@@ -103,6 +130,7 @@ def get_owned_workflow(db, workflow_id: str, user_id: str) -> dict:
 
 
 def get_owned_execution(db, execution_id: str, user_id: str) -> dict:
+    """Returns an execution only when it belongs to the current user."""
     try:
         result = db.table("executions").select("*").eq("id", execution_id).eq("user_id", user_id).single().execute()
     except Exception:
@@ -111,6 +139,7 @@ def get_owned_execution(db, execution_id: str, user_id: str) -> dict:
 
 
 def get_execution_logs(db, execution_id: str) -> list[dict]:
+    """Loads ordered agent logs for an execution."""
     try:
         result = db.table("agent_logs").select("*").eq("execution_id", execution_id).order("created_at").execute()
     except Exception:
@@ -120,12 +149,14 @@ def get_execution_logs(db, execution_id: str) -> list[dict]:
 
 
 def n8n_headers() -> dict[str, str]:
+    """Returns authentication headers for n8n API requests."""
     if not settings.n8n_api_key:
         raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "n8n API key is not configured", "N8N_UNAVAILABLE")
     return {"X-N8N-API-KEY": settings.n8n_api_key}
 
 
 async def n8n_request(method: str, path: str, payload: dict | None = None) -> dict:
+    """Calls n8n with retries for transient API failures."""
     retryable_statuses = {408, 425, 429, 500, 502, 503, 504}
     attempts = 3
     timeout = 20.0
@@ -167,22 +198,45 @@ async def n8n_request(method: str, path: str, payload: dict | None = None) -> di
 
 
 def sanitize_n8n_workflow_payload(workflow: dict) -> dict:
-    return {key: workflow[key] for key in N8N_MUTABLE_KEYS if key in workflow}
+    """Keeps only n8n fields accepted by workflow update endpoints."""
+    payload = {key: workflow[key] for key in N8N_MUTABLE_KEYS if key in workflow}
+    if isinstance(payload.get("settings"), dict):
+        payload["settings"] = {k: v for k, v in payload["settings"].items() if k in N8N_SETTINGS_ALLOWED_KEYS}
+    return payload
 
 
 async def get_n8n_workflow(n8n_workflow_id: str) -> dict:
+    """Loads an n8n workflow by ID."""
     return await n8n_request("GET", f"/api/v1/workflows/{n8n_workflow_id}")
 
 
 async def update_n8n_workflow(n8n_workflow_id: str, workflow: dict) -> dict:
+    """Updates mutable n8n workflow fields."""
     return await n8n_request("PUT", f"/api/v1/workflows/{n8n_workflow_id}", sanitize_n8n_workflow_payload(workflow))
 
 
 async def activate_n8n_workflow(n8n_workflow_id: str) -> None:
-    await n8n_request("POST", f"/api/v1/workflows/{n8n_workflow_id}/activate")
+    """Activates an n8n workflow using supported API variants."""
+    activate_paths = [
+        ("POST", f"/api/v1/workflows/{n8n_workflow_id}/activate", None),
+        ("POST", f"/rest/workflows/{n8n_workflow_id}/activate", None),
+        ("PATCH", f"/api/v1/workflows/{n8n_workflow_id}", {"active": True}),
+        ("PATCH", f"/rest/workflows/{n8n_workflow_id}", {"active": True}),
+    ]
+    for method, path, payload in activate_paths:
+        try:
+            await n8n_request(method, path, payload)
+            return
+        except HTTPException as exc:
+            detail = exc.detail if isinstance(exc.detail, dict) else {}
+            message = str(detail.get("error") or exc.detail)
+            if "HTTP 401" in message or "HTTP 404" in message or "HTTP 405" in message:
+                continue
+            raise
 
 
 async def latest_n8n_execution_id(n8n_workflow_id: str) -> str | None:
+    """Returns the latest n8n execution ID for a workflow when available."""
     payload = await n8n_request("GET", f"/api/v1/executions?workflowId={n8n_workflow_id}&limit=1")
     rows = payload.get("data") if isinstance(payload, dict) else None
     if isinstance(rows, list) and rows:
@@ -192,6 +246,7 @@ async def latest_n8n_execution_id(n8n_workflow_id: str) -> str | None:
 
 
 async def ensure_test_webhook_path(workflow: dict) -> str:
+    """Ensures a browser-test webhook exists for manual execution dispatch."""
     agent_config = workflow.get("agent_config") or {}
     configured_path = agent_config.get("test_webhook_path")
     if configured_path:
@@ -232,10 +287,17 @@ async def ensure_test_webhook_path(workflow: dict) -> str:
 
 
 def execution_safe_uuid() -> str:
+    """Returns a timestamp-based identifier safe for n8n node names."""
     return datetime.now(UTC).strftime("%Y%m%d%H%M%S%f")
 
 
-async def dispatch_via_test_webhook(n8n_workflow_id: str, webhook_path: str, execution_id: str, body: TriggerExecutionRequest) -> str | None:
+async def dispatch_via_test_webhook(
+    n8n_workflow_id: str,
+    webhook_path: str,
+    execution_id: str,
+    body: TriggerExecutionRequest,
+) -> tuple[bool, str | None]:
+    """Triggers n8n through the browser-test webhook path."""
     previous_execution_id = await latest_n8n_execution_id(n8n_workflow_id)
     await activate_n8n_workflow(n8n_workflow_id)
     payload = {
@@ -244,25 +306,53 @@ async def dispatch_via_test_webhook(n8n_workflow_id: str, webhook_path: str, exe
         "source_channel": body.source_channel,
         "sender_id": body.sender_id,
     }
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(f"{settings.n8n_url}/webhook/{webhook_path}", json=payload, timeout=20.0)
-            response.raise_for_status()
-    except httpx.HTTPStatusError as exc:
-        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, f"n8n webhook returned HTTP {exc.response.status_code}", "N8N_UNAVAILABLE")
-    except httpx.RequestError as exc:
-        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, f"n8n webhook request failed: {exc.__class__.__name__}", "N8N_UNAVAILABLE")
+    webhook_urls = [
+        f"{settings.n8n_url}/webhook/{webhook_path}",
+        f"{settings.n8n_url}/webhook-test/{webhook_path}",
+    ]
+    dispatched = False
+    last_status_error: httpx.HTTPStatusError | None = None
+    last_request_error: httpx.RequestError | None = None
+    for webhook_url in webhook_urls:
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(webhook_url, json=payload, timeout=20.0)
+                response.raise_for_status()
+            dispatched = True
+            break
+        except httpx.HTTPStatusError as exc:
+            last_status_error = exc
+            continue
+        except httpx.RequestError as exc:
+            last_request_error = exc
+            continue
 
-    for attempt in range(5):
+    if not dispatched:
+        if last_status_error is not None:
+            raise api_error(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                f"n8n webhook returned HTTP {last_status_error.response.status_code}",
+                "N8N_UNAVAILABLE",
+            )
+        if last_request_error is not None:
+            raise api_error(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                f"n8n webhook request failed: {last_request_error.__class__.__name__}",
+                "N8N_UNAVAILABLE",
+            )
+        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "n8n webhook dispatch failed", "N8N_UNAVAILABLE")
+
+    for attempt in range(40):
         latest_execution_id = await latest_n8n_execution_id(n8n_workflow_id)
         if latest_execution_id and latest_execution_id != previous_execution_id:
-            return latest_execution_id
-        if attempt < 4:
-            await asyncio.sleep(0.5)
-    return None
+            return True, latest_execution_id
+        if attempt < 39:
+            await asyncio.sleep(1.0)
+    return True, None
 
 
 def _extract_n8n_execution_id(payload: dict) -> str | None:
+    """Finds an n8n execution ID in webhook or API response payloads."""
     candidate = payload.get("id") or payload.get("executionId")
     if candidate:
         return str(candidate)
@@ -275,14 +365,25 @@ def _extract_n8n_execution_id(payload: dict) -> str | None:
 
 
 async def trigger_n8n_execution(workflow: dict, execution_id: str, body: TriggerExecutionRequest) -> str | None:
+    """Starts execution in n8n for a Supabase execution row."""
     n8n_workflow_id = workflow.get("n8n_workflow_id")
     if not n8n_workflow_id:
         raise api_error(status.HTTP_400_BAD_REQUEST, "Workflow has no linked n8n workflow", "N8N_WORKFLOW_MISSING")
 
     webhook_path = await ensure_test_webhook_path(workflow)
-    webhook_execution_id = await dispatch_via_test_webhook(n8n_workflow_id, webhook_path, execution_id, body)
-    if webhook_execution_id:
-        return webhook_execution_id
+    try:
+        webhook_dispatched, webhook_execution_id = await dispatch_via_test_webhook(
+            n8n_workflow_id,
+            webhook_path,
+            execution_id,
+            body,
+        )
+        if webhook_dispatched:
+            return webhook_execution_id
+    except HTTPException as exc:
+        detail = exc.detail if isinstance(exc.detail, dict) else {}
+        message = str(detail.get("error") or exc.detail)
+        logger.warning("Test webhook dispatch failed, falling back to run endpoint: %s", message)
 
     run_payload = {
         "workflowData": {
@@ -311,16 +412,15 @@ async def trigger_n8n_execution(workflow: dict, execution_id: str, body: Trigger
         if parsed:
             return parsed
 
-    if last_error:
-        raise last_error
     raise api_error(
         status.HTTP_503_SERVICE_UNAVAILABLE,
-        "n8n run request did not return an execution id",
+        "Webhook dispatch failed and n8n run API is not available. Ensure the workflow is active in n8n and the webhook path matches.",
         "N8N_DISPATCH_FAILED",
     )
 
 
 def _derive_quality_metrics(agent_logs: list[dict], inquiry_text: str | None, final_reply: str | None) -> dict:
+    """Derives lightweight quality and bottleneck metrics from trace data."""
     inquiry = (inquiry_text or "").strip()
     reply = (final_reply or "").strip()
     inquiry_tokens = {token for token in inquiry.lower().split() if len(token) > 3}
@@ -371,6 +471,7 @@ def _derive_quality_metrics(agent_logs: list[dict], inquiry_text: str | None, fi
 
 
 def _first_item_json(entry: dict) -> dict:
+    """Extracts the first JSON item from an n8n node execution entry."""
     main_data = ((entry.get("data") or {}).get("main") or [])
     if not main_data or not isinstance(main_data[0], list) or not main_data[0]:
         return {}
@@ -382,36 +483,43 @@ def _first_item_json(entry: dict) -> dict:
 
 
 def _agent_io_from_payload(role: str, payload: dict) -> tuple[dict, dict]:
+    """Normalizes raw n8n node JSON into agent input and output fields."""
+    extracted = payload.get("_extracted") or {}
     base_input = {
         "inquiry": payload.get("original_inquiry"),
         "source_channel": payload.get("source_channel"),
         "sender_id": payload.get("sender_id"),
     }
     if role == "classifier":
-        return base_input, {"classification": payload.get("classification")}
+        classification = payload.get("classification") or extracted.get("classification")
+        return base_input, {"classification": classification}
     if role == "researcher":
-        return {**base_input, "classification": payload.get("classification"), "kb_document_used": payload.get("kb_document_used")}, {
-            "research": payload.get("research"),
-            "kb_source": payload.get("kb_source"),
-            "kb_fallback": payload.get("kb_fallback"),
+        return {**base_input, "classification": payload.get("classification") or extracted.get("classification"), "kb_document_used": payload.get("kb_document_used") or extracted.get("kb_document_used")}, {
+            "research": payload.get("research") or extracted.get("research"),
+            "kb_source": payload.get("kb_source") or extracted.get("kb_source"),
+            "kb_fallback": payload.get("kb_fallback") or extracted.get("kb_fallback"),
         }
     if role == "qualifier":
-        return {**base_input, "classification": payload.get("classification"), "research": payload.get("research")}, {
-            "qualification": payload.get("qualification")
+        return {**base_input, "classification": payload.get("classification") or extracted.get("classification"), "research": payload.get("research") or extracted.get("research")}, {
+            "qualification": payload.get("qualification") or extracted.get("qualification")
         }
     if role == "responder":
-        return {**base_input, "classification": payload.get("classification"), "qualification": payload.get("qualification")}, {
-            "draft_reply": payload.get("draft_reply")
+        draft_reply = payload.get("draft_reply") or extracted.get("draft_reply")
+        return {**base_input, "classification": payload.get("classification") or extracted.get("classification"), "qualification": payload.get("qualification") or extracted.get("qualification")}, {
+            "draft_reply": draft_reply
         }
-    return {**base_input, "draft_reply": payload.get("draft_reply")}, {
-        "execution": payload.get("execution"),
-        "delivery_mode": payload.get("delivery_mode"),
-        "reply_sent": payload.get("reply_sent"),
-        "logged": payload.get("execution", {}).get("logged") if isinstance(payload.get("execution"), dict) else None,
+    draft_reply = payload.get("draft_reply") or extracted.get("draft_reply")
+    execution = payload.get("execution") or {}
+    return {**base_input, "draft_reply": draft_reply}, {
+        "execution": execution,
+        "delivery_mode": payload.get("delivery_mode") or extracted.get("channel"),
+        "reply_sent": payload.get("reply_sent") or extracted.get("sent"),
+        "logged": execution.get("logged") if isinstance(execution, dict) else extracted.get("logged"),
     }
 
 
 def _extract_logs_from_n8n(detail: dict) -> list[dict]:
+    """Builds ordered agent log rows from an n8n execution detail payload."""
     run_data = (((detail.get("data") or {}).get("resultData") or {}).get("runData") or {})
     by_role: dict[str, dict] = {}
 
@@ -477,6 +585,7 @@ def _extract_logs_from_n8n(detail: dict) -> list[dict]:
 
 
 async def sync_execution_from_n8n(db, execution: dict) -> dict:
+    """Refreshes a local execution row from its n8n execution detail."""
     n8n_execution_id = execution.get("n8n_execution_id")
     if not n8n_execution_id:
         return execution
@@ -505,8 +614,16 @@ async def sync_execution_from_n8n(db, execution: dict) -> dict:
         except ValueError:
             duration_ms = None
 
+    final_reply = execution.get("final_reply")
+    if not final_reply:
+        for log in logs:
+            if log.get("agent_role") == "responder":
+                final_reply = (log.get("output") or {}).get("draft_reply")
+                if final_reply:
+                    break
+
     detail_payload = execution.get("scorecard_detail") or {}
-    quality = _derive_quality_metrics(logs, detail_payload.get("inquiry_text"), execution.get("final_reply"))
+    quality = _derive_quality_metrics(logs, detail_payload.get("inquiry_text"), final_reply)
     merged_detail = {**detail_payload, **quality, "n8n_status": n8n_status}
 
     update_data = {
@@ -515,6 +632,8 @@ async def sync_execution_from_n8n(db, execution: dict) -> dict:
         "duration_ms": duration_ms,
         "scorecard_detail": merged_detail,
     }
+    if final_reply:
+        update_data["final_reply"] = final_reply
     if not execution.get("score") and quality.get("quality"):
         update_data["score"] = max(1, min(10, round((quality["quality"]["overall_quality_score"] or 0) / 10)))
 
@@ -526,6 +645,7 @@ async def sync_execution_from_n8n(db, execution: dict) -> dict:
 
 
 def display_status(execution: dict) -> str:
+    """Returns the display status for an execution row."""
     status_value = execution.get("status") or "running"
     details = execution.get("scorecard_detail") or {}
     if status_value == "running" and details.get("paused"):
@@ -534,6 +654,7 @@ def display_status(execution: dict) -> str:
 
 
 def _maybe_finished_fields(current_status: str, duration_ms: int | None) -> dict:
+    """Builds finished timestamp fields for terminal execution statuses."""
     if current_status != "running":
         return {}
     fields = {
@@ -550,6 +671,7 @@ async def trigger_execution(
     body: TriggerExecutionRequest,
     current_user: dict = Depends(get_current_user),
 ):
+    """Creates a local execution row and starts its n8n workflow run."""
     db = get_supabase_admin_client()
     workflow = get_owned_workflow(db, workflow_id, current_user["id"])
 
@@ -615,6 +737,7 @@ async def list_executions(
     limit: int = Query(default=25, ge=1, le=100),
     current_user: dict = Depends(get_current_user),
 ):
+    """Lists executions for the authenticated user with optional filters."""
     db = get_supabase_admin_client()
     query = db.table("executions").select("*").eq("user_id", current_user["id"]).order("started_at", desc=True).limit(limit)
 
@@ -636,6 +759,7 @@ async def list_executions(
 
 @router.get("/executions/{execution_id}")
 async def get_execution(execution_id: str, current_user: dict = Depends(get_current_user)):
+    """Returns one execution and its agent logs."""
     db = get_supabase_admin_client()
     execution = get_owned_execution(db, execution_id, current_user["id"])
     logs = get_execution_logs(db, execution_id)
@@ -644,6 +768,7 @@ async def get_execution(execution_id: str, current_user: dict = Depends(get_curr
 
 @router.get("/executions/{execution_id}/status")
 async def get_execution_status(execution_id: str, current_user: dict = Depends(get_current_user)):
+    """Returns the latest execution status, synchronizing from n8n when possible."""
     db = get_supabase_admin_client()
     execution = get_owned_execution(db, execution_id, current_user["id"])
     details = execution.get("scorecard_detail") or {}
@@ -667,6 +792,7 @@ async def get_execution_status(execution_id: str, current_user: dict = Depends(g
 
 @router.get("/executions/{execution_id}/trace")
 async def get_execution_trace(execution_id: str, current_user: dict = Depends(get_current_user)):
+    """Returns only the ordered trace logs for an execution."""
     db = get_supabase_admin_client()
     get_owned_execution(db, execution_id, current_user["id"])
     return get_execution_logs(db, execution_id)
@@ -674,6 +800,7 @@ async def get_execution_trace(execution_id: str, current_user: dict = Depends(ge
 
 @router.post("/executions/{execution_id}/cancel")
 async def cancel_execution(execution_id: str, current_user: dict = Depends(get_current_user)):
+    """Marks a running execution as cancelled."""
     db = get_supabase_admin_client()
     execution = get_owned_execution(db, execution_id, current_user["id"])
 
@@ -701,6 +828,7 @@ async def cancel_execution(execution_id: str, current_user: dict = Depends(get_c
 
 @router.post("/executions/{execution_id}/pause")
 async def pause_execution(execution_id: str, current_user: dict = Depends(get_current_user)):
+    """Marks a running execution as paused."""
     db = get_supabase_admin_client()
     execution = get_owned_execution(db, execution_id, current_user["id"])
     if execution["status"] != "running":
@@ -727,6 +855,7 @@ async def pause_execution(execution_id: str, current_user: dict = Depends(get_cu
 
 @router.post("/executions/{execution_id}/resume", status_code=status.HTTP_201_CREATED)
 async def resume_execution(execution_id: str, current_user: dict = Depends(get_current_user)):
+    """Resumes a paused execution and attempts to restart n8n dispatch."""
     db = get_supabase_admin_client()
     execution = get_owned_execution(db, execution_id, current_user["id"])
     detail = execution.get("scorecard_detail") or {}
@@ -798,6 +927,7 @@ async def resume_execution(execution_id: str, current_user: dict = Depends(get_c
 
 @router.post("/executions/{execution_id}/retry", status_code=status.HTTP_201_CREATED)
 async def retry_execution(execution_id: str, current_user: dict = Depends(get_current_user)):
+    """Creates a new execution retry from a previous execution payload."""
     db = get_supabase_admin_client()
     execution = get_owned_execution(db, execution_id, current_user["id"])
 
@@ -872,6 +1002,7 @@ async def append_agent_logs(
     body: AppendAgentLogsRequest,
     current_user: dict = Depends(get_current_user),
 ):
+    """Appends agent logs to an execution from a callback or test client."""
     db = get_supabase_admin_client()
     get_owned_execution(db, execution_id, current_user["id"])
 
@@ -893,6 +1024,7 @@ async def complete_execution(
     body: CompleteExecutionRequest,
     current_user: dict = Depends(get_current_user),
 ):
+    """Marks an execution complete and persists optional agent logs."""
     db = get_supabase_admin_client()
     execution = get_owned_execution(db, execution_id, current_user["id"])
 
@@ -934,6 +1066,7 @@ async def export_execution(
     format: ExportFormat = Query(default="json"),
     current_user: dict = Depends(get_current_user),
 ):
+    """Exports one execution as JSON, text, or PDF."""
     db = get_supabase_admin_client()
     execution = get_owned_execution(db, execution_id, current_user["id"])
     logs = get_execution_logs(db, execution_id)
@@ -959,3 +1092,67 @@ async def export_execution(
         media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename=execution-{execution_id}.pdf"},
     )
+
+
+class N8nCallbackRequest(BaseModel):
+    """Callback payload posted by n8n when a workflow execution completes."""
+
+    status: Literal["success", "failed", "cancelled"] = "success"
+    final_reply: str | None = None
+    n8n_execution_id: str | None = None
+    duration_ms: int | None = Field(default=None, ge=0)
+    agent_logs: list[AgentLogPayload] = Field(default_factory=list)
+
+
+@router.post("/executions/{execution_id}/n8n-callback", status_code=status.HTTP_200_OK)
+async def n8n_execution_callback(
+    execution_id: str,
+    body: N8nCallbackRequest,
+    x_callback_secret: str | None = Header(default=None),
+):
+    """Receives completion callbacks from n8n without requiring user auth.
+
+    Secured by a shared secret passed in the X-Callback-Secret header.
+    """
+    if not settings.n8n_callback_secret:
+        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "Callback secret not configured", "CALLBACK_UNAVAILABLE")
+    if x_callback_secret != settings.n8n_callback_secret:
+        raise api_error(status.HTTP_401_UNAUTHORIZED, "Invalid callback secret", "UNAUTHORIZED")
+
+    db = get_supabase_admin_client()
+    try:
+        result = db.table("executions").select("*").eq("id", execution_id).single().execute()
+    except Exception:
+        raise api_error(status.HTTP_404_NOT_FOUND, "Execution not found", "NOT_FOUND")
+    execution = result.data
+
+    if body.agent_logs:
+        rows = [{**log.model_dump(), "execution_id": execution_id} for log in body.agent_logs]
+        try:
+            db.table("agent_logs").insert(rows).execute()
+        except Exception:
+            pass
+
+    existing_detail = execution.get("scorecard_detail") or {}
+    inquiry_text = existing_detail.get("inquiry_text")
+    quality_logs = [log.model_dump() for log in body.agent_logs] if body.agent_logs else []
+    quality = _derive_quality_metrics(quality_logs, inquiry_text, body.final_reply)
+    merged_detail = {**existing_detail, **quality, "paused": False}
+
+    update_data = {
+        "status": body.status,
+        "final_reply": body.final_reply,
+        "scorecard_detail": merged_detail,
+    }
+    if body.n8n_execution_id:
+        update_data["n8n_execution_id"] = body.n8n_execution_id
+    update_data.update(_maybe_finished_fields(execution["status"], body.duration_ms))
+    if body.duration_ms is not None:
+        update_data["duration_ms"] = body.duration_ms
+
+    try:
+        db.table("executions").update(update_data).eq("id", execution_id).execute()
+    except Exception:
+        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "Database query failed", "DB_ERROR")
+
+    return {"ok": True, "execution_id": execution_id, "status": body.status}

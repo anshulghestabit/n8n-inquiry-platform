@@ -1,3 +1,5 @@
+"""OpenAI-compatible LLM client helpers for Sarvam and LM Studio."""
+
 import logging
 
 from openai import OpenAI, OpenAIError
@@ -9,9 +11,14 @@ logger = logging.getLogger(__name__)
 
 
 def get_llm_client() -> OpenAI:
-    """
-    Both Sarvam and LM Studio are OpenAI-compatible.
-    Switch via LLM_PROVIDER env var — no code changes needed.
+    """Creates an OpenAI-compatible client for the configured provider.
+
+    Returns:
+        OpenAI SDK client pointing at Sarvam or LM Studio.
+
+    Raises:
+        RuntimeError: If required provider configuration is missing.
+        ValueError: If `LLM_PROVIDER` is unsupported.
     """
     if settings.llm_provider == "sarvam":
         if not settings.sarvam_api_key:
@@ -29,6 +36,14 @@ def get_llm_client() -> OpenAI:
 
 
 def get_model_name() -> str:
+    """Returns the model name configured for the active LLM provider.
+
+    Returns:
+        Model name sent to the chat completion API.
+
+    Raises:
+        ValueError: If `LLM_PROVIDER` is unsupported.
+    """
     if settings.llm_provider == "sarvam":
         return settings.sarvam_model
     if settings.llm_provider != "lmstudio":
@@ -37,9 +52,17 @@ def get_model_name() -> str:
 
 
 async def chat(system_prompt: str, user_message: str) -> str:
-    """
-    Single unified chat call used by all 5 agents.
-    Sarvam and LM Studio both speak OpenAI protocol.
+    """Runs one chat completion against the configured LLM provider.
+
+    Args:
+        system_prompt: System prompt defining the agent role.
+        user_message: User or workflow message to process.
+
+    Returns:
+        Text content from the first completion choice.
+
+    Raises:
+        RuntimeError: If the request, configuration, or response is invalid.
     """
     try:
         client = get_llm_client()

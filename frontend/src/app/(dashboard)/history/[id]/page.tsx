@@ -4,6 +4,7 @@ import { useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { ApiRequestError, API_BASE_URL, apiFetch } from '@/lib/api'
 
+/** Agent trace row attached to an execution detail response. */
 type AgentLog = {
   id: string
   agent_role: string
@@ -13,6 +14,7 @@ type AgentLog = {
   error_message?: string | null
 }
 
+/** Full execution detail payload rendered by the trace page. */
 type ExecutionDetail = {
   id: string
   workflow_id: string
@@ -39,6 +41,11 @@ type ExecutionDetail = {
   agent_logs: AgentLog[]
 }
 
+/**
+ * Renders a single execution trace, scorecard, and export controls.
+ *
+ * @returns Execution detail page component.
+ */
 export default function HistoryDetailPage() {
   const params = useParams<{ id: string }>()
   const [execution, setExecution] = useState<ExecutionDetail | null>(null)

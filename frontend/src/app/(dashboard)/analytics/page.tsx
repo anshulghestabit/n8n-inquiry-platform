@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { ApiRequestError, API_BASE_URL, apiFetch } from '@/lib/api'
 
+/** High-level analytics summary returned by `/analytics/summary`. */
 type Summary = {
   total_executions: number
   success_rate: number
@@ -12,6 +13,7 @@ type Summary = {
   avg_completeness_score: number
 }
 
+/** Per-agent latency, reliability, and bottleneck metrics. */
 type AgentMetric = {
   agent_role: string
   avg_duration_ms: number
@@ -22,12 +24,18 @@ type AgentMetric = {
   sample_size: number
 }
 
+/** Daily execution counts used to render trend rows. */
 type ChartPoint = {
   date: string
   count: number
   success_count: number
 }
 
+/**
+ * Renders analytics cards, trend data, agent metrics, and export actions.
+ *
+ * @returns Analytics page component.
+ */
 export default function AnalyticsPage() {
   const [summary, setSummary] = useState<Summary | null>(null)
   const [agents, setAgents] = useState<AgentMetric[]>([])

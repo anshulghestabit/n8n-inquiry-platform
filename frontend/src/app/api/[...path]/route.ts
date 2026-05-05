@@ -1,13 +1,24 @@
 import { NextRequest } from 'next/server'
 
-const INTERNAL_API_URL = process.env.INTERNAL_API_URL || 'http://backend:8000'
+const INTERNAL_API_URL = process.env.INTERNAL_API_URL
+if (!INTERNAL_API_URL) {
+  throw new Error('INTERNAL_API_URL is not configured')
+}
 
+/**
+ * Proxies same-origin Next.js API calls to the internal FastAPI service.
+ *
+ * @param request - Incoming browser request handled by Next.js.
+ * @param context - Dynamic path segments captured by the route.
+ * @returns The backend response with status, body, and headers preserved.
+ */
 async function proxyRequest(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
   try {
     const { path } = await context.params
     const targetUrl = new URL(`/${path.join('/')}${request.nextUrl.search}`, INTERNAL_API_URL)
     const headers = new Headers(request.headers)
 
+    // The Docker service name becomes the authority for internal backend calls.
     headers.delete('host')
 
     const response = await fetch(targetUrl, {

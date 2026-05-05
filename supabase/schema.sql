@@ -1,3 +1,6 @@
+-- Base Supabase schema for the n8n inquiry platform.
+-- Creates application tables, signup triggers, and row-level security policies.
+
 -- ============================================
 -- PART 1: TABLES
 -- ============================================

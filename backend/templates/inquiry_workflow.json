@@ -91,7 +91,7 @@
       ],
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.SARVAM_BASE_URL || 'https://api.sarvam.ai/v1' }}/chat/completions",
+        "url": "={{ $env.SARVAM_BASE_URL }}/chat/completions",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -107,7 +107,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ { \"model\": $env.SARVAM_MODEL || \"sarvam-105b\", \"messages\": [{ \"role\": \"system\", \"content\": \"You are a sales-focused customer inquiry classifier for a demo workflow. Think internally if needed, but output ONLY compact raw JSON with no markdown and no explanation. Required keys: type, priority, confidence. Classify pricing, demo, procurement, enterprise, seats, onboarding, automation, implementation timeline, or purchase-intent messages as sales_inquiry. type must be one of sales_inquiry, support_ticket, complaint, general_question, order_request. priority must be low, medium, or high. confidence must be a number from 0 to 1.\" }, { \"role\": \"user\", \"content\": `Subject: ${$('Normalize_Input').item.json.subject}\\nBody: ${$('Normalize_Input').item.json.original_inquiry}` }], \"max_tokens\": 1500, \"temperature\": 0 } }}"
+        "jsonBody": "={{ { \"model\": $env.SARVAM_MODEL, \"messages\": [{ \"role\": \"system\", \"content\": \"You are a sales-focused customer inquiry classifier for a demo workflow. Think internally if needed, but output ONLY compact raw JSON with no markdown and no explanation. Required keys: type, priority, confidence. Classify pricing, demo, procurement, enterprise, seats, onboarding, automation, implementation timeline, or purchase-intent messages as sales_inquiry. type must be one of sales_inquiry, support_ticket, complaint, general_question, order_request. priority must be low, medium, or high. confidence must be a number from 0 to 1.\" }, { \"role\": \"user\", \"content\": `Subject: ${$('Normalize_Input').item.json.subject}\\nBody: ${$('Normalize_Input').item.json.original_inquiry}` }], \"max_tokens\": 1500, \"temperature\": 0 } }}"
       }
     },
     {
@@ -170,7 +170,7 @@
         "fileId": {
           "__rl": true,
           "mode": "id",
-          "value": "={{ (() => { const intent = String($('Validate_Classifier').item.json.classification?.type || ''); const byIntent = { sales_inquiry: $env.GOOGLE_DRIVE_KB_SALES_FILE_ID || '1H81rJBmEoQ9oTd6lIzUIWxIAAW_JZlEb2HmpVL0nEwU', support_ticket: $env.GOOGLE_DRIVE_KB_SUPPORT_FILE_ID || '1yEjWTDOWy8tVk7XENVtdmkxlFakMQrljFzEn06iyucE', complaint: $env.GOOGLE_DRIVE_KB_COMPLAINT_FILE_ID || '1CzRauQmDPKa8OvgLLMPOxHveXbrG-277Uv-IMWpF4C0', general_question: $env.GOOGLE_DRIVE_KB_GENERAL_FILE_ID || '1gGHxi93GE5OrV3m6twWy86pzMunq2lMgvTomNMy5q-o', order_request: $env.GOOGLE_DRIVE_KB_ORDER_FILE_ID || '1kII7FmOR54UZ5bUNI_MXIDmcUfn_AUHTLptvimbagzo' }; return byIntent[intent] || $env.GOOGLE_DRIVE_KB_DEFAULT_FILE_ID || '1GrWRxL57O7yGiDK6YSL-v40kkFw1dj4JAaY8Ym3tQs4' || $env.GOOGLE_DRIVE_KB_FILE_ID || ''; })() }}"
+          "value": "={{ (() => { const intent = String($('Validate_Classifier').item.json.classification?.type || ''); const byIntent = { sales_inquiry: $env.GOOGLE_DRIVE_KB_SALES_FILE_ID, support_ticket: $env.GOOGLE_DRIVE_KB_SUPPORT_FILE_ID, complaint: $env.GOOGLE_DRIVE_KB_COMPLAINT_FILE_ID, general_question: $env.GOOGLE_DRIVE_KB_GENERAL_FILE_ID, order_request: $env.GOOGLE_DRIVE_KB_ORDER_FILE_ID }; return byIntent[intent] || $env.GOOGLE_DRIVE_KB_DEFAULT_FILE_ID || $env.GOOGLE_DRIVE_KB_FILE_ID || ''; })() }}"
         },
         "options": {}
       },
@@ -191,7 +191,7 @@
         0
       ],
       "parameters": {
-        "jsCode": "const base = $('Validate_Classifier').first().json;\nconst driveResult = $input.first().json || {};\nconst intent = String(base.classification?.type || '');\nconst selectedId = (() => {\n  const byIntent = {\n    sales_inquiry: $env.GOOGLE_DRIVE_KB_SALES_FILE_ID || '1H81rJBmEoQ9oTd6lIzUIWxIAAW_JZlEb2HmpVL0nEwU',\n    support_ticket: $env.GOOGLE_DRIVE_KB_SUPPORT_FILE_ID || '1yEjWTDOWy8tVk7XENVtdmkxlFakMQrljFzEn06iyucE',\n    complaint: $env.GOOGLE_DRIVE_KB_COMPLAINT_FILE_ID || '1CzRauQmDPKa8OvgLLMPOxHveXbrG-277Uv-IMWpF4C0',\n    general_question: $env.GOOGLE_DRIVE_KB_GENERAL_FILE_ID || '1gGHxi93GE5OrV3m6twWy86pzMunq2lMgvTomNMy5q-o',\n    order_request: $env.GOOGLE_DRIVE_KB_ORDER_FILE_ID || '1kII7FmOR54UZ5bUNI_MXIDmcUfn_AUHTLptvimbagzo',\n  };\n  return byIntent[intent] || $env.GOOGLE_DRIVE_KB_DEFAULT_FILE_ID || '1GrWRxL57O7yGiDK6YSL-v40kkFw1dj4JAaY8Ym3tQs4' || $env.GOOGLE_DRIVE_KB_FILE_ID || '';\n})();\nconst content = driveResult.data || driveResult.content || driveResult.text || '';\nconst relevantText = String(content || '').trim();\nconst fallback = 'No specific information found.';\nconst source = relevantText ? 'google_drive' : 'none';\nconst sales_kb_text = relevantText || fallback;\nconst documentUsed = driveResult.name || driveResult.fileName || driveResult.title || selectedId || 'none';\nreturn [{ json: { ...base, sales_kb_text, kb_document_used: documentUsed, kb_fallback: !relevantText, kb_source: source } }];"
+        "jsCode": "const base = $('Validate_Classifier').first().json;\nconst driveResult = $input.first().json || {};\nconst intent = String(base.classification?.type || '');\nconst selectedId = (() => {\n  const byIntent = {\n    sales_inquiry: $env.GOOGLE_DRIVE_KB_SALES_FILE_ID,\n    support_ticket: $env.GOOGLE_DRIVE_KB_SUPPORT_FILE_ID,\n    complaint: $env.GOOGLE_DRIVE_KB_COMPLAINT_FILE_ID,\n    general_question: $env.GOOGLE_DRIVE_KB_GENERAL_FILE_ID,\n    order_request: $env.GOOGLE_DRIVE_KB_ORDER_FILE_ID,\n  };\n  return byIntent[intent] || $env.GOOGLE_DRIVE_KB_DEFAULT_FILE_ID || $env.GOOGLE_DRIVE_KB_FILE_ID || '';\n})();\nconst content = driveResult.data || driveResult.content || driveResult.text || '';\nconst relevantText = String(content || '').trim();\nconst fallback = 'No specific information found.';\nconst source = relevantText ? 'google_drive' : 'none';\nconst sales_kb_text = relevantText || fallback;\nconst documentUsed = driveResult.name || driveResult.fileName || driveResult.title || selectedId || 'none';\nreturn [{ json: { ...base, sales_kb_text, kb_document_used: documentUsed, kb_fallback: !relevantText, kb_source: source } }];"
       }
     },
     {
@@ -205,7 +205,7 @@
       ],
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.SARVAM_BASE_URL || 'https://api.sarvam.ai/v1' }}/chat/completions",
+        "url": "={{ $env.SARVAM_BASE_URL }}/chat/completions",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -221,7 +221,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ { \"model\": $env.SARVAM_MODEL || \"sarvam-105b\", \"messages\": [{ \"role\": \"system\", \"content\": \"You are a sales knowledge-base researcher. Think internally if needed, but output ONLY compact raw JSON with no markdown and no explanation. Required keys: relevant_info, source. Prefer information from the provided Google Drive KB content and return source as google_drive when KB content is present. If no specific information is available, use {\\\"relevant_info\\\":\\\"No specific information found.\\\",\\\"source\\\":\\\"none\\\"}.\" }, { \"role\": \"user\", \"content\": `Inquiry: ${$('Drive_KB_Content_Prep').item.json.original_inquiry}\\nClassification: ${JSON.stringify($('Drive_KB_Content_Prep').item.json.classification)}\\nGoogle Drive KB content:\\n${$('Drive_KB_Content_Prep').item.json.sales_kb_text}` }], \"max_tokens\": 1500, \"temperature\": 0 } }}"
+        "jsonBody": "={{ { \"model\": $env.SARVAM_MODEL, \"messages\": [{ \"role\": \"system\", \"content\": \"You are a sales knowledge-base researcher. Think internally if needed, but output ONLY compact raw JSON with no markdown and no explanation. Required keys: relevant_info, source. Prefer information from the provided Google Drive KB content and return source as google_drive when KB content is present. If no specific information is available, use {\\\"relevant_info\\\":\\\"No specific information found.\\\",\\\"source\\\":\\\"none\\\"}.\" }, { \"role\": \"user\", \"content\": `Inquiry: ${$('Drive_KB_Content_Prep').item.json.original_inquiry}\\nClassification: ${JSON.stringify($('Drive_KB_Content_Prep').item.json.classification)}\\nGoogle Drive KB content:\\n${$('Drive_KB_Content_Prep').item.json.sales_kb_text}` }], \"max_tokens\": 1500, \"temperature\": 0 } }}"
       }
     },
     {
@@ -281,7 +281,7 @@
       ],
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.SARVAM_BASE_URL || 'https://api.sarvam.ai/v1' }}/chat/completions",
+        "url": "={{ $env.SARVAM_BASE_URL }}/chat/completions",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -297,7 +297,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ { \"model\": $env.SARVAM_MODEL || \"sarvam-105b\", \"messages\": [{ \"role\": \"system\", \"content\": \"You are a sales lead qualifier. Think internally if needed, but output ONLY compact raw JSON with no markdown and no explanation. Required keys: lead_score, reason. lead_score must be a number from 1 to 10. Score sales inquiries higher when they mention pricing, demo, procurement, team size, enterprise requirements, or implementation timeline. reason must be one sentence.\" }, { \"role\": \"user\", \"content\": `Inquiry: ${$json.original_inquiry}\\nClassification: ${JSON.stringify($json.classification)}\\nResearch: ${JSON.stringify($json.research)}` }], \"max_tokens\": 1500, \"temperature\": 0 } }}",
+        "jsonBody": "={{ { \"model\": $env.SARVAM_MODEL, \"messages\": [{ \"role\": \"system\", \"content\": \"You are a sales lead qualifier. Think internally if needed, but output ONLY compact raw JSON with no markdown and no explanation. Required keys: lead_score, reason. lead_score must be a number from 1 to 10. Score sales inquiries higher when they mention pricing, demo, procurement, team size, enterprise requirements, or implementation timeline. reason must be one sentence.\" }, { \"role\": \"user\", \"content\": `Inquiry: ${$json.original_inquiry}\\nClassification: ${JSON.stringify($json.classification)}\\nResearch: ${JSON.stringify($json.research)}` }], \"max_tokens\": 1500, \"temperature\": 0 } }}",
         "options": {
           "timeout": 30000
         }
@@ -406,7 +406,7 @@
       ],
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.SARVAM_BASE_URL || 'https://api.sarvam.ai/v1' }}/chat/completions",
+        "url": "={{ $env.SARVAM_BASE_URL }}/chat/completions",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -422,7 +422,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ { \"model\": $env.SARVAM_MODEL || \"sarvam-105b\", \"messages\": [{ \"role\": \"system\", \"content\": \"You are a sales response specialist. Think internally if needed, but output ONLY compact raw JSON with no markdown and no explanation. Required key: draft_reply. draft_reply must contain the complete professional reply text. For sales inquiries, reference the relevant plan, pricing range, setup timeline, and offer a demo. If information is missing, promise a follow-up within 24 business hours.\" }, { \"role\": \"user\", \"content\": `Inquiry: ${$json.original_inquiry}\\nClassification: ${JSON.stringify($json.classification)}\\nResearch: ${JSON.stringify($json.research)}\\nQualification: ${JSON.stringify($json.qualification)}` }], \"max_tokens\": 1500, \"temperature\": 0 } }}"
+        "jsonBody": "={{ { \"model\": $env.SARVAM_MODEL, \"messages\": [{ \"role\": \"system\", \"content\": \"You are a sales response specialist. Think internally if needed, but output ONLY compact raw JSON with no markdown and no explanation. Required key: draft_reply. draft_reply must contain the complete professional reply text. For sales inquiries, reference the relevant plan, pricing range, setup timeline, and offer a demo. If information is missing, promise a follow-up within 24 business hours.\" }, { \"role\": \"user\", \"content\": `Inquiry: ${$json.original_inquiry}\\nClassification: ${JSON.stringify($json.classification)}\\nResearch: ${JSON.stringify($json.research)}\\nQualification: ${JSON.stringify($json.qualification)}` }], \"max_tokens\": 1500, \"temperature\": 0 } }}"
       }
     },
     {
@@ -482,7 +482,7 @@
       ],
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.SARVAM_BASE_URL || 'https://api.sarvam.ai/v1' }}/chat/completions",
+        "url": "={{ $env.SARVAM_BASE_URL }}/chat/completions",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -498,7 +498,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ { \"model\": $env.SARVAM_MODEL || \"sarvam-105b\", \"messages\": [{ \"role\": \"system\", \"content\": \"You are an execution coordinator. Think internally if needed, but output ONLY compact raw JSON with no markdown and no explanation. Required keys: sent, channel, logged. Use {\\\"sent\\\":true,\\\"channel\\\":\\\"gmail\\\",\\\"logged\\\":true}.\" }, { \"role\": \"user\", \"content\": `Draft reply: ${$('Responder_JSON').item.json.draft_reply}\\nChannel: gmail` }], \"max_tokens\": 1500, \"temperature\": 0 } }}"
+        "jsonBody": "={{ { \"model\": $env.SARVAM_MODEL, \"messages\": [{ \"role\": \"system\", \"content\": \"You are an execution coordinator. Think internally if needed, but output ONLY compact raw JSON with no markdown and no explanation. Required keys: sent, channel, logged. Use {\\\"sent\\\":true,\\\"channel\\\":\\\"gmail\\\",\\\"logged\\\":true}.\" }, { \"role\": \"user\", \"content\": `Draft reply: ${$('Responder_JSON').item.json.draft_reply}\\nChannel: gmail` }], \"max_tokens\": 1500, \"temperature\": 0 } }}"
       }
     },
     {
@@ -648,7 +648,7 @@
                 "operation": "true",
                 "singleValue": true
               },
-              "leftValue": "={{ ($env.GMAIL_SEND_MODE || 'review').toLowerCase() === 'auto' }}",
+              "leftValue": "={{ ($env.GMAIL_SEND_MODE || '').toLowerCase() === 'auto' }}",
               "rightValue": true
             }
           ]
@@ -722,12 +722,12 @@
         "documentId": {
           "__rl": true,
           "mode": "id",
-          "value": "={{ (() => { const sheet = $env.GOOGLE_SHEET_ID || '1QOuxtk3kwQz6jCYj5zghQHKSex3eDa-g_Ldph8Y-t4c'; const match = sheet.match(/\\/d\\/([^/]+)/); return match ? match[1] : sheet.split('?')[0].split('#')[0]; })() }}"
+          "value": "={{ (() => { const sheet = $env.GOOGLE_SHEET_ID || ''; const match = sheet.match(/\\/d\\/([^/]+)/); return match ? match[1] : sheet.split('?')[0].split('#')[0]; })() }}"
         },
         "sheetName": {
           "__rl": true,
           "mode": "name",
-          "value": "={{ $env.GOOGLE_SHEET_NAME || 'Sheet1' }}"
+          "value": "={{ $env.GOOGLE_SHEET_NAME }}"
         },
         "columns": {
           "mappingMode": "defineBelow",

@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { ApiRequestError, apiFetch } from '@/lib/api'
 
+/** Aggregate metrics displayed in the dashboard overview. */
 type Summary = {
   total_executions: number
   success_rate: number
@@ -11,6 +12,7 @@ type Summary = {
   avg_score: number
 }
 
+/** Most recent execution shown in the dashboard activity card. */
 type Execution = {
   id: string
   status: 'running' | 'paused' | 'success' | 'failed' | 'cancelled'
@@ -19,6 +21,11 @@ type Execution = {
   inquiry_snippet?: string | null
 }
 
+/**
+ * Renders the dashboard control-room summary for the current user.
+ *
+ * @returns Dashboard overview page component.
+ */
 export default function DashboardPage() {
   const [summary, setSummary] = useState<Summary | null>(null)
   const [latest, setLatest] = useState<Execution | null>(null)

@@ -1,3 +1,5 @@
+"""FastAPI application entrypoint and router registration."""
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api import analytics, auth, executions, system, workflows
@@ -8,7 +10,7 @@ settings = get_settings()
 app = FastAPI(
     title="n8n Inquiry Platform API",
     version="0.1.0",
-    docs_url="/docs" if settings.environment == "development" else None
+    docs_url="/docs" if settings.backend_docs_enabled else None
 )
 
 app.add_middleware(
@@ -27,6 +29,7 @@ app.include_router(analytics.router)
 
 @app.get("/health")
 async def health():
+    """Returns a minimal health payload for container and tunnel checks."""
     return {
         "status": "ok",
         "llm_provider": settings.llm_provider,
