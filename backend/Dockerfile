@@ -1,6 +1,9 @@
 # FastAPI development image for the backend API service.
 FROM python:3.11-slim
 
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
 WORKDIR /app
 
 # Install Python dependencies from the committed uv lockfile before copying
@@ -16,6 +19,12 @@ RUN pip install --no-cache-dir uv==0.11.13 \
 COPY main.py ./
 COPY app ./app
 COPY templates ./templates
+
+RUN groupadd --system app \
+    && useradd --system --gid app --home-dir /app --shell /usr/sbin/nologin app \
+    && chown -R app:app /app
+
+USER app
 
 # Run uvicorn with reload because this compose stack is used for local iteration.
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
