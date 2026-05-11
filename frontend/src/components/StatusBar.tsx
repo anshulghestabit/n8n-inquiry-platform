@@ -33,6 +33,7 @@ export function StatusBar() {
   useEffect(() => {
     let active = true
 
+    /** Fetches current integration health and updates the status chips. */
     async function loadStatus() {
       try {
         const data = await apiFetch<SystemStatus>('/system/status')

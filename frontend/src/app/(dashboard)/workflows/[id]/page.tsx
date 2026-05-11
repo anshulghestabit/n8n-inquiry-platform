@@ -101,6 +101,11 @@ export default function WorkflowDetailPage() {
     }
   }, [execution?.id, execution?.status])
 
+  /**
+   * Starts a test execution for the current workflow from form input.
+   *
+   * @param event - Browser form submit event.
+   */
   async function handleRun(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const formData = new FormData(event.currentTarget)
@@ -132,6 +137,7 @@ export default function WorkflowDetailPage() {
     }
   }
 
+  /** Cancels the currently running execution and refreshes its status. */
   async function handleCancel() {
     if (!execution?.id) {
       return
@@ -149,6 +155,7 @@ export default function WorkflowDetailPage() {
     }
   }
 
+  /** Creates a retry run from the currently selected execution. */
   async function handleRetry() {
     if (!execution?.id) {
       return
@@ -169,6 +176,7 @@ export default function WorkflowDetailPage() {
     }
   }
 
+  /** Pauses the current running execution through the backend lifecycle API. */
   async function handlePause() {
     if (!execution?.id) {
       return
@@ -186,6 +194,7 @@ export default function WorkflowDetailPage() {
     }
   }
 
+  /** Resumes a paused execution by creating a new backend run. */
   async function handleResume() {
     if (!execution?.id) {
       return
