@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//home/anshulgarg/.claude/plugins/marketplaces/claude-plugins-official/external_plugins/github/**)",
+      "Read(//home/anshulgarg/.claude/plugins/marketplaces/claude-plugins-official/plugins/**)",
+      "Read(//home/anshulgarg/.claude/plugins/marketplaces/claude-plugins-official/plugins/code-review/**)",
+      "Bash(curl -s \"https://api.github.com/repos/czlonkowski/n8n-skills/contents/.claude-plugin\")",
+      "Bash(python3 -m json.tool)",
+      "Bash(curl -s \"https://api.github.com/repos/czlonkowski/n8n-skills/contents/.claude-plugin/plugin.json\")",
+      "Bash(python3 -c \"import sys,json,base64; d=json.load\\(sys.stdin\\); print\\(base64.b64decode\\(d['content']\\).decode\\(\\)\\)\")",
+      "Bash(xargs ls *)",
+      "Bash(curl -s \"https://api.github.com/repos/czlonkowski/n8n-skills/contents/.claude-plugin/marketplace.json\")",
+      "Bash(curl -s \"https://api.github.com/repos/czlonkowski/n8n-skills/contents/skills\")",
+      "Bash(git clone *)",
+      "Bash(graphify claude *)",
+      "Bash(docker exec fastapi *)",
+      "Bash(docker restart *)",
+      "Bash(git -C /home/anshulgarg/Documents/n8n-inquiry-platform diff)",
+      "Bash(git -C /home/anshulgarg/Documents/n8n-inquiry-platform status)",
+      "Bash(git -C /home/anshulgarg/Documents/n8n-inquiry-platform log --oneline -5)",
+      "Bash(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:5678/webhook/browser-test-20260503110744161973 -H 'Content-Type: application/json' -d '{\"execution_id\":\"test-001\",\"inquiry_text\":\"test\",\"source_channel\":\"test\",\"sender_id\":\"test\"}')",
+      "Bash(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:5678/webhook-test/browser-test-20260503110744161973 -H 'Content-Type: application/json' -d '{\"execution_id\":\"test-001\",\"inquiry_text\":\"test\",\"source_channel\":\"test\",\"sender_id\":\"test\"}')"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "supabase"
+  ]
+}
