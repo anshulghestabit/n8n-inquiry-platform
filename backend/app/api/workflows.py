@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 TEMPLATE_PATH = Path(__file__).resolve().parents[2] / "templates" / "inquiry_workflow.json"
 N8N_MUTABLE_KEYS = {"name", "nodes", "connections", "settings"}
 DATABASE_QUERY_FAILED_MESSAGE = "Database query failed"
+WORKFLOW_NOT_FOUND_MESSAGE = "Workflow not found"
 AGENT_NOT_FOUND_MESSAGE = "Agent not found"
 N8N_SETTINGS_ALLOWED_KEYS = {
     "executionOrder", "saveDataErrorExecution", "saveDataSuccessExecution",
@@ -353,9 +354,9 @@ def get_owned_workflow(db, workflow_id: str, user_id: str) -> dict:
     try:
         result = db.table("workflows").select("*").eq("id", workflow_id).eq("user_id", user_id).single().execute()
     except Exception:
-        raise api_error(status.HTTP_404_NOT_FOUND, "Workflow not found", "NOT_FOUND")
+        raise api_error(status.HTTP_404_NOT_FOUND, WORKFLOW_NOT_FOUND_MESSAGE, "NOT_FOUND")
     if not result.data:
-        raise api_error(status.HTTP_404_NOT_FOUND, "Workflow not found", "NOT_FOUND")
+        raise api_error(status.HTTP_404_NOT_FOUND, WORKFLOW_NOT_FOUND_MESSAGE, "NOT_FOUND")
     return result.data
 
 
@@ -468,7 +469,7 @@ async def update_workflow(
     except Exception:
         raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, DATABASE_QUERY_FAILED_MESSAGE, "DB_ERROR")
     if not result.data:
-        raise api_error(status.HTTP_404_NOT_FOUND, "Workflow not found", "NOT_FOUND")
+        raise api_error(status.HTTP_404_NOT_FOUND, WORKFLOW_NOT_FOUND_MESSAGE, "NOT_FOUND")
     return result.data[0]
 
 

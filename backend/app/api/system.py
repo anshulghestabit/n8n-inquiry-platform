@@ -1,7 +1,7 @@
 """System health and integration verification API routes."""
 
 from datetime import UTC, datetime
-from typing import Literal
+from typing import Annotated, Literal
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -208,7 +208,7 @@ async def verify_integration_connection(source_type: SourceType) -> dict:
 
 
 @router.get("/status")
-async def system_status(current_user: dict = Depends(get_current_user)):
+async def system_status(current_user: Annotated[dict, Depends(get_current_user)]):
     """Returns live service and integration status for the current user."""
     connection_status = {
         "n8n": False,
@@ -241,7 +241,7 @@ async def system_status(current_user: dict = Depends(get_current_user)):
 
 
 @router.get("/integrations")
-async def list_integrations(current_user: dict = Depends(get_current_user)):
+async def list_integrations(current_user: Annotated[dict, Depends(get_current_user)]):
     """Lists integration connection states for the current user."""
     db = get_supabase_admin_client()
     sources = get_data_source_map(db, current_user["id"])
@@ -260,7 +260,7 @@ async def list_integrations(current_user: dict = Depends(get_current_user)):
 async def connect_integration(
     source_type: SourceType,
     body: IntegrationActionRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: Annotated[dict, Depends(get_current_user)],
 ):
     """Connects and verifies an integration for the current user."""
     db = get_supabase_admin_client()
@@ -280,7 +280,7 @@ async def connect_integration(
 async def verify_integration(
     source_type: SourceType,
     body: IntegrationActionRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: Annotated[dict, Depends(get_current_user)],
 ):
     """Re-verifies an already connected integration."""
     db = get_supabase_admin_client()
@@ -302,7 +302,7 @@ async def verify_integration(
 
 
 @router.post("/integrations/{source_type}/disconnect")
-async def disconnect_integration(source_type: SourceType, current_user: dict = Depends(get_current_user)):
+async def disconnect_integration(source_type: SourceType, current_user: Annotated[dict, Depends(get_current_user)]):
     """Marks an integration disconnected for the current user."""
     db = get_supabase_admin_client()
     row = upsert_data_source(db, current_user["id"], source_type, False, None)

@@ -1,6 +1,7 @@
 """Authentication and profile API routes backed by Supabase Auth."""
 
 import logging
+from typing import Annotated
 
 from pydantic import BaseModel, EmailStr, Field
 from fastapi import APIRouter, Depends, HTTPException, Response, status
@@ -236,7 +237,7 @@ async def logout(response: Response):
 
 
 @router.get("/me")
-async def me(current_user: dict = Depends(get_current_user)):
+async def me(current_user: Annotated[dict, Depends(get_current_user)]):
     """Returns the current profile, repairing missing profile rows when possible."""
     db = get_supabase_admin_client()
     try:
@@ -283,7 +284,7 @@ async def me(current_user: dict = Depends(get_current_user)):
 @router.put("/me")
 async def update_me(
     data: UpdateProfileRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: Annotated[dict, Depends(get_current_user)],
 ):
     """Updates mutable profile fields for the authenticated user."""
     update_data = data.model_dump(exclude_none=True)

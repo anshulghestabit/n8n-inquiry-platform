@@ -3,7 +3,7 @@
 from collections import defaultdict
 from datetime import datetime
 import logging
-from typing import Literal
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
@@ -40,7 +40,7 @@ def _safe_float(value) -> float | None:
 
 
 @router.get("/analytics/summary")
-async def analytics_summary(current_user: dict = Depends(get_current_user)):
+async def analytics_summary(current_user: Annotated[dict, Depends(get_current_user)]):
     """Returns aggregate execution and quality metrics for the current user."""
     db = get_supabase_admin_client()
     try:
@@ -75,7 +75,7 @@ async def analytics_summary(current_user: dict = Depends(get_current_user)):
 
 
 @router.get("/analytics/chart")
-async def analytics_chart(current_user: dict = Depends(get_current_user)):
+async def analytics_chart(current_user: Annotated[dict, Depends(get_current_user)]):
     """Returns daily execution counts and successes for chart rendering."""
     db = get_supabase_admin_client()
     try:
@@ -102,7 +102,7 @@ async def analytics_chart(current_user: dict = Depends(get_current_user)):
 
 
 @router.get("/analytics/agents")
-async def analytics_agents(current_user: dict = Depends(get_current_user)):
+async def analytics_agents(current_user: Annotated[dict, Depends(get_current_user)]):
     """Returns per-agent duration, reliability, and bottleneck metrics."""
     db = get_supabase_admin_client()
     try:
@@ -179,8 +179,8 @@ async def analytics_agents(current_user: dict = Depends(get_current_user)):
 
 @router.get("/analytics/export")
 async def export_analytics(
-    format: ExportFormat = Query(default="csv"),
-    current_user: dict = Depends(get_current_user),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    format: Annotated[ExportFormat, Query()] = "csv",
 ):
     """Exports execution analytics as CSV or PDF."""
     db = get_supabase_admin_client()
