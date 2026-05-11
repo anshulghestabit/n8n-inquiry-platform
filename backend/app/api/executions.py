@@ -77,6 +77,7 @@ N8N_SETTINGS_ALLOWED_KEYS = {
     "saveManualExecutions", "saveExecutionProgress", "executionTimeout",
     "timezone", "callerPolicy", "callerIds", "errorWorkflow",
 }
+DATABASE_QUERY_FAILED_MESSAGE = "Database query failed"
 
 
 class TriggerExecutionRequest(BaseModel):
@@ -143,7 +144,7 @@ def get_execution_logs(db, execution_id: str) -> list[dict]:
     try:
         result = db.table("agent_logs").select("*").eq("execution_id", execution_id).order("created_at").execute()
     except Exception:
-        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "Database query failed", "DB_ERROR")
+        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, DATABASE_QUERY_FAILED_MESSAGE, "DB_ERROR")
     logs = result.data or []
     return sorted(logs, key=lambda row: ROLE_ORDER.get(row.get("agent_role", ""), 99))
 
@@ -602,7 +603,7 @@ async def sync_execution_from_n8n(db, execution: dict) -> dict:
             db.table("agent_logs").delete().eq("execution_id", execution["id"]).execute()
             db.table("agent_logs").insert([{**row, "execution_id": execution["id"]} for row in logs]).execute()
     except Exception:
-        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "Database query failed", "DB_ERROR")
+        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, DATABASE_QUERY_FAILED_MESSAGE, "DB_ERROR")
 
     started_at = execution.get("started_at")
     finished_at = datetime.now(UTC)
@@ -640,7 +641,7 @@ async def sync_execution_from_n8n(db, execution: dict) -> dict:
     try:
         result = db.table("executions").update(update_data).eq("id", execution["id"]).execute()
     except Exception:
-        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "Database query failed", "DB_ERROR")
+        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, DATABASE_QUERY_FAILED_MESSAGE, "DB_ERROR")
     return result.data[0]
 
 
@@ -688,7 +689,7 @@ async def trigger_execution(
     try:
         result = db.table("executions").insert(payload).execute()
     except Exception:
-        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "Database query failed", "DB_ERROR")
+        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, DATABASE_QUERY_FAILED_MESSAGE, "DB_ERROR")
 
     execution = result.data[0]
 
@@ -720,7 +721,7 @@ async def trigger_execution(
                 .data[0]
             )
         except Exception:
-            raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "Database query failed", "DB_ERROR")
+            raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, DATABASE_QUERY_FAILED_MESSAGE, "DB_ERROR")
 
     return {
         "execution_id": execution["id"],
@@ -749,7 +750,7 @@ async def list_executions(
     try:
         result = query.execute()
     except Exception:
-        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "Database query failed", "DB_ERROR")
+        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, DATABASE_QUERY_FAILED_MESSAGE, "DB_ERROR")
 
     rows = result.data or []
     if status_filter == "paused":
@@ -821,7 +822,7 @@ async def cancel_execution(execution_id: str, current_user: dict = Depends(get_c
     try:
         result = db.table("executions").update(update_data).eq("id", execution_id).execute()
     except Exception:
-        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "Database query failed", "DB_ERROR")
+        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, DATABASE_QUERY_FAILED_MESSAGE, "DB_ERROR")
 
     return {"id": execution_id, "status": display_status(result.data[0])}
 
@@ -849,7 +850,7 @@ async def pause_execution(execution_id: str, current_user: dict = Depends(get_cu
     try:
         result = db.table("executions").update({"scorecard_detail": next_detail}).eq("id", execution_id).execute()
     except Exception:
-        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "Database query failed", "DB_ERROR")
+        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, DATABASE_QUERY_FAILED_MESSAGE, "DB_ERROR")
     return {"id": execution_id, "status": "paused", "message": "Execution paused", "execution": result.data[0]}
 
 
@@ -880,7 +881,7 @@ async def resume_execution(execution_id: str, current_user: dict = Depends(get_c
     try:
         result = db.table("executions").insert(payload).execute()
     except Exception:
-        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "Database query failed", "DB_ERROR")
+        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, DATABASE_QUERY_FAILED_MESSAGE, "DB_ERROR")
     new_execution = result.data[0]
 
     body = TriggerExecutionRequest(
@@ -916,7 +917,7 @@ async def resume_execution(execution_id: str, current_user: dict = Depends(get_c
                 .data[0]
             )
         except Exception:
-            raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "Database query failed", "DB_ERROR")
+            raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, DATABASE_QUERY_FAILED_MESSAGE, "DB_ERROR")
 
     return {
         "execution_id": new_execution["id"],
@@ -950,7 +951,7 @@ async def retry_execution(execution_id: str, current_user: dict = Depends(get_cu
     try:
         result = db.table("executions").insert(payload).execute()
     except Exception:
-        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "Database query failed", "DB_ERROR")
+        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, DATABASE_QUERY_FAILED_MESSAGE, "DB_ERROR")
 
     new_execution = result.data[0]
     body = TriggerExecutionRequest(
@@ -986,7 +987,7 @@ async def retry_execution(execution_id: str, current_user: dict = Depends(get_cu
                 .data[0]
             )
         except Exception:
-            raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "Database query failed", "DB_ERROR")
+            raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, DATABASE_QUERY_FAILED_MESSAGE, "DB_ERROR")
 
     return {
         "execution_id": new_execution["id"],
@@ -1013,7 +1014,7 @@ async def append_agent_logs(
     try:
         db.table("agent_logs").insert(rows).execute()
     except Exception:
-        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "Database query failed", "DB_ERROR")
+        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, DATABASE_QUERY_FAILED_MESSAGE, "DB_ERROR")
 
     return {"saved": len(rows)}
 
@@ -1033,7 +1034,7 @@ async def complete_execution(
         try:
             db.table("agent_logs").insert(rows).execute()
         except Exception:
-            raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "Database query failed", "DB_ERROR")
+            raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, DATABASE_QUERY_FAILED_MESSAGE, "DB_ERROR")
 
     existing_detail = execution.get("scorecard_detail") or {}
     inquiry_text = existing_detail.get("inquiry_text")
@@ -1055,7 +1056,7 @@ async def complete_execution(
     try:
         result = db.table("executions").update(update_data).eq("id", execution_id).execute()
     except Exception:
-        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "Database query failed", "DB_ERROR")
+        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, DATABASE_QUERY_FAILED_MESSAGE, "DB_ERROR")
 
     return result.data[0]
 
@@ -1153,6 +1154,6 @@ async def n8n_execution_callback(
     try:
         db.table("executions").update(update_data).eq("id", execution_id).execute()
     except Exception:
-        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "Database query failed", "DB_ERROR")
+        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, DATABASE_QUERY_FAILED_MESSAGE, "DB_ERROR")
 
     return {"ok": True, "execution_id": execution_id, "status": body.status}

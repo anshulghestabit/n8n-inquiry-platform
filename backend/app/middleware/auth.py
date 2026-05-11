@@ -14,6 +14,8 @@ settings = get_settings()
 security = HTTPBearer(auto_error=False)
 _jwks_cache: dict[str, dict] = {}
 _ASYMMETRIC_ALGORITHMS = ["RS256"]
+INVALID_TOKEN_MESSAGE = "Invalid token"
+TOKEN_EXPIRED_MESSAGE = "Token expired"
 
 
 def auth_error(message: str, code: str) -> HTTPException:
@@ -125,7 +127,7 @@ def validate_token_with_supabase(token: str) -> dict:
         response = get_supabase_client().auth.get_user(token)
     except Exception as exc:
         if "expired" in str(exc).lower():
-            raise ExpiredSignatureError("Token expired") from exc
+            raise ExpiredSignatureError(TOKEN_EXPIRED_MESSAGE) from exc
         raise JWTError("Supabase token validation failed") from exc
 
     user = getattr(response, "user", None)
@@ -156,23 +158,23 @@ async def get_current_user(
     """
     token = credentials.credentials if credentials else auth_token
     if not token:
-        raise auth_error("Invalid token", "INVALID_TOKEN")
+        raise auth_error(INVALID_TOKEN_MESSAGE, "INVALID_TOKEN")
 
     try:
         payload = await decode_supabase_token(token)
     except ExpiredSignatureError:
-        raise auth_error("Token expired", "TOKEN_EXPIRED")
+        raise auth_error(TOKEN_EXPIRED_MESSAGE, "TOKEN_EXPIRED")
     except JWTError:
         try:
             payload = validate_token_with_supabase(token)
         except ExpiredSignatureError:
-            raise auth_error("Token expired", "TOKEN_EXPIRED")
+            raise auth_error(TOKEN_EXPIRED_MESSAGE, "TOKEN_EXPIRED")
         except JWTError:
-            raise auth_error("Invalid token", "INVALID_TOKEN")
+            raise auth_error(INVALID_TOKEN_MESSAGE, "INVALID_TOKEN")
 
     user_id = payload.get("sub")
     email = payload.get("email")
     if not user_id:
-        raise auth_error("Invalid token", "INVALID_TOKEN")
+        raise auth_error(INVALID_TOKEN_MESSAGE, "INVALID_TOKEN")
 
     return {"id": user_id, "email": email}

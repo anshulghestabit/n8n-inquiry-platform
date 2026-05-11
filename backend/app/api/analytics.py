@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 ExportFormat = Literal["csv", "pdf"]
 AGENT_ROLES = ["classifier", "researcher", "qualifier", "responder", "executor"]
+DATABASE_QUERY_FAILED_MESSAGE = "Database query failed"
 
 
 def api_error(status_code: int, message: str, code: str) -> HTTPException:
@@ -45,7 +46,7 @@ async def analytics_summary(current_user: dict = Depends(get_current_user)):
     try:
         result = db.table("executions").select("status,duration_ms,score,scorecard_detail").eq("user_id", current_user["id"]).execute()
     except Exception:
-        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "Database query failed", "DB_ERROR")
+        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, DATABASE_QUERY_FAILED_MESSAGE, "DB_ERROR")
 
     rows = result.data or []
     total = len(rows)
@@ -80,7 +81,7 @@ async def analytics_chart(current_user: dict = Depends(get_current_user)):
     try:
         result = db.table("executions").select("status,started_at").eq("user_id", current_user["id"]).order("started_at").execute()
     except Exception:
-        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "Database query failed", "DB_ERROR")
+        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, DATABASE_QUERY_FAILED_MESSAGE, "DB_ERROR")
 
     daily: dict[str, dict] = defaultdict(lambda: {"date": "", "count": 0, "success_count": 0})
     for row in result.data or []:
@@ -107,7 +108,7 @@ async def analytics_agents(current_user: dict = Depends(get_current_user)):
     try:
         execution_rows = db.table("executions").select("id,duration_ms,scorecard_detail").eq("user_id", current_user["id"]).execute().data or []
     except Exception:
-        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "Database query failed", "DB_ERROR")
+        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, DATABASE_QUERY_FAILED_MESSAGE, "DB_ERROR")
 
     execution_ids = [row["id"] for row in execution_rows]
     if not execution_ids:
@@ -127,7 +128,7 @@ async def analytics_agents(current_user: dict = Depends(get_current_user)):
     try:
         logs = db.table("agent_logs").select("agent_role,duration_ms,status").in_("execution_id", execution_ids).execute().data or []
     except Exception:
-        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "Database query failed", "DB_ERROR")
+        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, DATABASE_QUERY_FAILED_MESSAGE, "DB_ERROR")
 
     role_rows: dict[str, list[dict]] = {role: [] for role in AGENT_ROLES}
     total_duration_all_logs = 0.0
@@ -194,7 +195,7 @@ async def export_analytics(
             or []
         )
     except Exception:
-        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, "Database query failed", "DB_ERROR")
+        raise api_error(status.HTTP_503_SERVICE_UNAVAILABLE, DATABASE_QUERY_FAILED_MESSAGE, "DB_ERROR")
 
     if format == "csv":
         try:
