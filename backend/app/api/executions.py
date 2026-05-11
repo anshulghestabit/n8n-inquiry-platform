@@ -3,7 +3,7 @@
 import asyncio
 import logging
 from datetime import UTC, datetime
-from typing import Literal
+from typing import Annotated, Literal
 
 import httpx
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response, status
@@ -670,7 +670,7 @@ def _maybe_finished_fields(current_status: str, duration_ms: int | None) -> dict
 async def trigger_execution(
     workflow_id: str,
     body: TriggerExecutionRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: Annotated[dict, Depends(get_current_user)],
 ):
     """Creates a local execution row and starts its n8n workflow run."""
     db = get_supabase_admin_client()
@@ -733,10 +733,10 @@ async def trigger_execution(
 
 @router.get("/executions")
 async def list_executions(
-    status_filter: ExecutionStatus | None = Query(default=None, alias="status"),
-    source_channel: SourceChannel | None = Query(default=None),
-    limit: int = Query(default=25, ge=1, le=100),
-    current_user: dict = Depends(get_current_user),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    status_filter: Annotated[ExecutionStatus | None, Query(alias="status")] = None,
+    source_channel: Annotated[SourceChannel | None, Query()] = None,
+    limit: Annotated[int, Query(ge=1, le=100)] = 25,
 ):
     """Lists executions for the authenticated user with optional filters."""
     db = get_supabase_admin_client()
@@ -759,7 +759,7 @@ async def list_executions(
 
 
 @router.get("/executions/{execution_id}")
-async def get_execution(execution_id: str, current_user: dict = Depends(get_current_user)):
+async def get_execution(execution_id: str, current_user: Annotated[dict, Depends(get_current_user)]):
     """Returns one execution and its agent logs."""
     db = get_supabase_admin_client()
     execution = get_owned_execution(db, execution_id, current_user["id"])
@@ -768,7 +768,7 @@ async def get_execution(execution_id: str, current_user: dict = Depends(get_curr
 
 
 @router.get("/executions/{execution_id}/status")
-async def get_execution_status(execution_id: str, current_user: dict = Depends(get_current_user)):
+async def get_execution_status(execution_id: str, current_user: Annotated[dict, Depends(get_current_user)]):
     """Returns the latest execution status, synchronizing from n8n when possible."""
     db = get_supabase_admin_client()
     execution = get_owned_execution(db, execution_id, current_user["id"])
@@ -792,7 +792,7 @@ async def get_execution_status(execution_id: str, current_user: dict = Depends(g
 
 
 @router.get("/executions/{execution_id}/trace")
-async def get_execution_trace(execution_id: str, current_user: dict = Depends(get_current_user)):
+async def get_execution_trace(execution_id: str, current_user: Annotated[dict, Depends(get_current_user)]):
     """Returns only the ordered trace logs for an execution."""
     db = get_supabase_admin_client()
     get_owned_execution(db, execution_id, current_user["id"])
@@ -800,7 +800,7 @@ async def get_execution_trace(execution_id: str, current_user: dict = Depends(ge
 
 
 @router.post("/executions/{execution_id}/cancel")
-async def cancel_execution(execution_id: str, current_user: dict = Depends(get_current_user)):
+async def cancel_execution(execution_id: str, current_user: Annotated[dict, Depends(get_current_user)]):
     """Marks a running execution as cancelled."""
     db = get_supabase_admin_client()
     execution = get_owned_execution(db, execution_id, current_user["id"])
@@ -828,7 +828,7 @@ async def cancel_execution(execution_id: str, current_user: dict = Depends(get_c
 
 
 @router.post("/executions/{execution_id}/pause")
-async def pause_execution(execution_id: str, current_user: dict = Depends(get_current_user)):
+async def pause_execution(execution_id: str, current_user: Annotated[dict, Depends(get_current_user)]):
     """Marks a running execution as paused."""
     db = get_supabase_admin_client()
     execution = get_owned_execution(db, execution_id, current_user["id"])
@@ -855,7 +855,7 @@ async def pause_execution(execution_id: str, current_user: dict = Depends(get_cu
 
 
 @router.post("/executions/{execution_id}/resume", status_code=status.HTTP_201_CREATED)
-async def resume_execution(execution_id: str, current_user: dict = Depends(get_current_user)):
+async def resume_execution(execution_id: str, current_user: Annotated[dict, Depends(get_current_user)]):
     """Resumes a paused execution and attempts to restart n8n dispatch."""
     db = get_supabase_admin_client()
     execution = get_owned_execution(db, execution_id, current_user["id"])
@@ -927,7 +927,7 @@ async def resume_execution(execution_id: str, current_user: dict = Depends(get_c
 
 
 @router.post("/executions/{execution_id}/retry", status_code=status.HTTP_201_CREATED)
-async def retry_execution(execution_id: str, current_user: dict = Depends(get_current_user)):
+async def retry_execution(execution_id: str, current_user: Annotated[dict, Depends(get_current_user)]):
     """Creates a new execution retry from a previous execution payload."""
     db = get_supabase_admin_client()
     execution = get_owned_execution(db, execution_id, current_user["id"])
@@ -1001,7 +1001,7 @@ async def retry_execution(execution_id: str, current_user: dict = Depends(get_cu
 async def append_agent_logs(
     execution_id: str,
     body: AppendAgentLogsRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: Annotated[dict, Depends(get_current_user)],
 ):
     """Appends agent logs to an execution from a callback or test client."""
     db = get_supabase_admin_client()
@@ -1023,7 +1023,7 @@ async def append_agent_logs(
 async def complete_execution(
     execution_id: str,
     body: CompleteExecutionRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: Annotated[dict, Depends(get_current_user)],
 ):
     """Marks an execution complete and persists optional agent logs."""
     db = get_supabase_admin_client()
@@ -1064,8 +1064,8 @@ async def complete_execution(
 @router.get("/executions/{execution_id}/export")
 async def export_execution(
     execution_id: str,
-    format: ExportFormat = Query(default="json"),
-    current_user: dict = Depends(get_current_user),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    format: Annotated[ExportFormat, Query()] = "json",
 ):
     """Exports one execution as JSON, text, or PDF."""
     db = get_supabase_admin_client()
@@ -1109,7 +1109,7 @@ class N8nCallbackRequest(BaseModel):
 async def n8n_execution_callback(
     execution_id: str,
     body: N8nCallbackRequest,
-    x_callback_secret: str | None = Header(default=None),
+    x_callback_secret: Annotated[str | None, Header()] = None,
 ):
     """Receives completion callbacks from n8n without requiring user auth.
 

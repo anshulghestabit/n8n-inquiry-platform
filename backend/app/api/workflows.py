@@ -3,7 +3,7 @@
 import json
 import logging
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import uuid4
 
 import httpx
@@ -360,7 +360,7 @@ def get_owned_workflow(db, workflow_id: str, user_id: str) -> dict:
 
 
 @router.post("/workflows", status_code=status.HTTP_201_CREATED)
-async def create_workflow(data: WorkflowCreateRequest, current_user: dict = Depends(get_current_user)):
+async def create_workflow(data: WorkflowCreateRequest, current_user: Annotated[dict, Depends(get_current_user)]):
     """Creates a Supabase workflow, n8n clone, and default agent rows."""
     db = get_supabase_admin_client()
     use_shared_workflow = bool(settings.demo_shared_n8n_workflow_id)
@@ -417,7 +417,7 @@ async def create_workflow(data: WorkflowCreateRequest, current_user: dict = Depe
 
 
 @router.get("/workflows")
-async def list_workflows(current_user: dict = Depends(get_current_user)):
+async def list_workflows(current_user: Annotated[dict, Depends(get_current_user)]):
     """Lists workflows owned by the authenticated user."""
     db = get_supabase_admin_client()
     try:
@@ -434,7 +434,7 @@ async def list_workflows(current_user: dict = Depends(get_current_user)):
 
 
 @router.get("/workflows/{workflow_id}")
-async def get_workflow(workflow_id: str, current_user: dict = Depends(get_current_user)):
+async def get_workflow(workflow_id: str, current_user: Annotated[dict, Depends(get_current_user)]):
     """Returns one workflow with its ordered agent configuration."""
     db = get_supabase_admin_client()
     workflow = get_owned_workflow(db, workflow_id, current_user["id"])
@@ -449,7 +449,7 @@ async def get_workflow(workflow_id: str, current_user: dict = Depends(get_curren
 async def update_workflow(
     workflow_id: str,
     data: WorkflowUpdateRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: Annotated[dict, Depends(get_current_user)],
 ):
     """Updates user-owned workflow metadata."""
     db = get_supabase_admin_client()
@@ -473,7 +473,7 @@ async def update_workflow(
 
 
 @router.delete("/workflows/{workflow_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_workflow(workflow_id: str, current_user: dict = Depends(get_current_user)):
+async def delete_workflow(workflow_id: str, current_user: Annotated[dict, Depends(get_current_user)]):
     """Deletes a user-owned workflow and its linked n8n workflow."""
     db = get_supabase_admin_client()
     workflow = get_owned_workflow(db, workflow_id, current_user["id"])
@@ -490,7 +490,7 @@ async def delete_workflow(workflow_id: str, current_user: dict = Depends(get_cur
 
 
 @router.get("/workflows/{workflow_id}/agents")
-async def list_agents(workflow_id: str, current_user: dict = Depends(get_current_user)):
+async def list_agents(workflow_id: str, current_user: Annotated[dict, Depends(get_current_user)]):
     """Lists ordered agents for a user-owned workflow."""
     db = get_supabase_admin_client()
     get_owned_workflow(db, workflow_id, current_user["id"])
@@ -508,7 +508,7 @@ async def list_agents(workflow_id: str, current_user: dict = Depends(get_current
 async def update_agent(
     agent_id: str,
     data: AgentUpdateRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: Annotated[dict, Depends(get_current_user)],
 ):
     """Updates an agent row and mirrors the prompt to n8n."""
     db = get_supabase_admin_client()
